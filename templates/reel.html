@@ -1,0 +1,123 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<link rel="stylesheet" href="brand.css"><script src="logo.js"></script>
+<style>
+html,body{width:1080px;height:1920px;overflow:hidden;background:transparent}
+#v{width:1080px;height:1920px;position:relative}
+#stage{position:absolute;inset:0;transform-origin:50% 45%;z-index:2}
+/* бит с живым видео: фон прозрачный, видео подкладывает ffmpeg */
+#v.clear{background:none!important}#v.clear .grid{display:none}
+#scrim{position:absolute;inset:0;opacity:0;z-index:1;background:linear-gradient(180deg,rgba(8,12,18,.78) 0,rgba(8,12,18,.12) 26%,rgba(8,12,18,.3) 52%,rgba(8,12,18,.9) 100%)}
+#v.clear .big,#v.clear .sub{text-shadow:0 6px 40px rgba(0,0,0,.65)}
+#v.clear .accent{background:none;-webkit-text-fill-color:#8fd0ff;color:#8fd0ff}
+#v.clear .glass{background:rgba(10,14,22,.72);border-color:rgba(255,255,255,.14)}
+.beat{position:absolute;inset:0;padding:300px 80px 560px;display:flex;flex-direction:column;justify-content:center;opacity:0}
+.big{font-family:"Inter Display",Inter;font-weight:900;letter-spacing:-.04em;line-height:.98}
+.slam{font-size:128px}.slam.s2{font-size:104px}
+.w{display:inline-block;opacity:0;margin-right:.18em}
+.sub{font-size:46px;line-height:1.35;color:#c7d1de}
+.hdr{position:absolute;top:118px;left:80px;right:80px;display:flex;justify-content:space-between;align-items:center;z-index:5}
+.prog{position:absolute;top:92px;left:80px;right:80px;height:7px;border-radius:4px;background:rgba(255,255,255,.12);z-index:5}
+.prog i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--sky),var(--blue));box-shadow:0 0 14px var(--sky)}
+.cap{position:absolute;left:70px;right:70px;bottom:400px;text-align:center;z-index:6;font-family:"Inter Display";font-weight:800;font-size:56px;line-height:1.18;letter-spacing:-.01em}
+.cap span{display:inline-block;margin:0 .22em;color:rgba(255,255,255,.55);text-shadow:0 3px 18px rgba(0,0,0,.8)}
+.cap span.on{color:#fff;transform:scale(1.08)}.cap span.hl{color:#0b1220;background:var(--sky);border-radius:12px;padding:0 .14em;text-shadow:none;transform:scale(1.1)}
+.item{display:flex;gap:28px;align-items:center;font-size:54px;line-height:1.2;padding:26px 30px;border-radius:30px;margin:10px 0;transition:none}
+.item em{flex:none;font-style:normal;width:84px;height:84px;border-radius:26px;display:grid;place-items:center;font-family:"Inter Display";font-weight:900;font-size:44px;background:rgba(47,123,255,.18);border:2px solid rgba(124,196,255,.4);color:var(--ice)}
+.item.act{background:rgba(47,123,255,.16);border:2px solid rgba(124,196,255,.45);box-shadow:0 0 50px rgba(47,123,255,.25)}
+.item.dim{opacity:.35}
+#flash{position:absolute;inset:0;background:#dff0ff;opacity:0;z-index:9;pointer-events:none}
+.badge{align-self:flex-start;font-size:34px;font-weight:700;letter-spacing:.06em;padding:14px 28px;border-radius:999px;background:var(--blue);color:#fff;box-shadow:0 0 40px rgba(47,123,255,.6)}
+</style></head><body>
+<div id="v" class="frame">
+ <div id="scrim"></div>
+ <div id="stage"><div class="grid"></div><div id="beats"></div></div>
+ <div class="prog"><i id="pg"></i></div>
+ <div class="hdr"><div class="brand"><span id="lg"></span><div>CRYSTAL FINANCE<small id="ser"></small></div></div></div>
+ <div class="cap" id="cap"></div>
+ <div id="flash"></div>
+</div>
+<script>
+/* SPEC: {series, ep, handle, beats:[{say, fx:"punch|whip|shake|flash" (можно через пробел), show:{kind,...}}]}
+   show.kind: slam{text, accent, badge, tone} | card{sub,status,tone,text} | number{value,label,tone}
+              gauge{value,danger,label} | list{title,items,active} | cta{line1,accent,keyword,handle}
+   accent — слова, которые подсветить голубым; tone:"red" — красным.
+   broll — англ. запрос стокового видео с людьми (публикатор скачает и подложит broll_file); у бита с broll фон — живое видео.
+   window.WORDS (необязательно) — [[{w,t0,t1}]] тайминги слов на каждый бит из озвучки. */
+const S = window.SPEC, esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const RED = '#ff6b6b', tone = t => t === 'good' ? '#4cd6a0' : t === 'warn' ? '#ffc35c' : RED;
+document.getElementById('lg').innerHTML = LOGO(64);
+document.getElementById('ser').textContent = (S.series || '') + (S.ep ? ' · ' + S.ep : '');
+const words = (txt, acc, tn) => esc(txt).split(/\s+/).map(w => {
+  const a = acc && acc.split(/\s+/).some(x => w.toLowerCase().includes(x.toLowerCase()));
+  return `<span class="w${a ? ' accent' : ''}" ${a && tn === 'red' ? `style="color:${RED}"` : ''}>${w}</span>`;
+}).join(' ');
+const build = (b, i) => {
+  const s = b.show || {}; let x = '';
+  switch (s.kind) {
+    case 'card':
+      x = `<div class="glass pop" style="align-self:center;width:780px;padding:44px 52px;margin-bottom:90px"><div style="font-size:34px;color:var(--muted)">${esc(s.sub)}</div><div class="big" style="display:flex;align-items:center;gap:22px;margin-top:20px;font-size:84px"><span style="width:34px;height:34px;border-radius:50%;background:${tone(s.tone)};box-shadow:0 0 36px ${tone(s.tone)}"></span>${esc(s.status)}</div></div>` + (s.text ? `<div class="big slam s2">${words(s.text, s.accent, s.tone)}</div>` : ''); break;
+    case 'number':
+      x = `<div class="sub up">${esc(s.label)}</div><div class="big pop num" data-v="${esc(s.value)}" style="font-size:190px;margin-top:20px;color:${s.tone ? tone(s.tone) : '#fff'}">${esc(s.value)}</div>`; break;
+    case 'gauge':
+      x = `<div class="pop" style="align-self:center;position:relative;width:640px;height:640px"><svg width="640" height="640" viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="11"/><circle class="arc" cx="60" cy="60" r="50" fill="none" stroke="#7cc4ff" stroke-width="11" stroke-linecap="round" transform="rotate(-90 60 60)" stroke-dasharray="314.16" stroke-dashoffset="314.16"/></svg><div style="position:absolute;inset:0;display:grid;place-items:center;text-align:center"><div><div class="big pct" style="font-size:200px">0%</div><div class="sub">${esc(s.label || 'нагрузка')}</div></div></div></div>`; break;
+    case 'list':
+      x = `<div class="big up" style="font-size:96px;margin-bottom:40px">${esc(s.title)}</div>` + (s.items || []).map((it, k) => `<div class="item ${k === s.active ? 'act' : k < s.active ? '' : 'dim'}"><em>${k + 1}</em><div>${esc(it)}</div></div>`).join(''); break;
+    case 'cta':
+      x = `<div class="pop" style="align-self:center">${LOGO(240)}</div><div class="big up" style="font-size:84px;text-align:center;margin-top:30px">${esc(s.line1)}<br><span class="accent">${esc(s.accent)}</span></div>` +
+        (s.keyword ? `<div class="up" style="align-self:center;margin-top:44px;font-size:42px;color:#c7d1de">Напишите слово</div><div class="pop big" style="align-self:center;margin-top:14px;font-size:120px;padding:10px 46px;border-radius:30px;background:var(--blue);box-shadow:0 0 70px rgba(47,123,255,.7)">${esc(s.keyword)}</div>` : '') +
+        `<div class="up big accent" style="align-self:center;margin-top:34px;font-size:76px">${esc(s.handle || S.handle || '@crystalfin54')}</div>`; break;
+    default: // slam
+      x = (s.badge ? `<div class="badge up">${esc(s.badge)}</div>` : '') + `<div class="big slam ${s.text && s.text.length > 22 ? 's2' : ''}" style="margin-top:${s.badge ? 40 : 0}px">${words(s.text || b.say, s.accent, s.tone)}</div>`;
+  }
+  return `<div class="beat" id="b${i}">${x}</div>`;
+};
+document.getElementById('beats').innerHTML = S.beats.map(build).join('');
+const estT = b => Math.max(1.2, b.say.split(/\s+/).length / 3.2 + .25);
+window.DUR = window.DUR || S.beats.map(estT);
+// тайминги слов в бите: из озвучки или пропорционально длине
+const W = S.beats.map((b, i) => {
+  if (window.WORDS && window.WORDS[i]) return window.WORDS[i];
+  const ws = b.say.split(/\s+/), tot = ws.reduce((a, w) => a + w.length + 2, 0), d = DUR[i] - .25; let t = 0;
+  return ws.map(w => { const l = (w.length + 2) / tot * d, o = { w, t0: t, t1: t + l }; t += l; return o; });
+});
+const ease = x => 1 - Math.pow(1 - Math.min(Math.max(x, 0), 1), 3);
+const back = x => { x = Math.min(Math.max(x, 0), 1); const c = 2.2; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const rnd = n => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+window.total = () => DUR.reduce((a, b) => a + b, 0);
+window.beatStarts = () => { let s = 0; return DUR.map(d => { const r = s; s += d; return r; }); };
+window.render = t => {
+  const st = beatStarts(); let cur = 0;
+  st.forEach((s0, i) => { if (t >= s0) cur = i; });
+  const b = S.beats[cur], lt = t - st[cur], d = DUR[cur], fx = (b.fx || '').split(/\s+/);
+  S.beats.forEach((_, i) => { document.getElementById('b' + i).style.opacity = i === cur ? 1 : 0; });
+  document.getElementById('v').classList.toggle('clear', !!b.broll);
+  document.getElementById('scrim').style.opacity = b.broll ? 1 : 0;
+  const el = document.getElementById('b' + cur);
+  // анимации элементов
+  el.querySelectorAll('.pop').forEach((e, k) => { const q = (lt - k * .08) / .32; e.style.opacity = ease(q * 2); e.style.transform = `scale(${.6 + .4 * back(q)})`; });
+  el.querySelectorAll('.up').forEach((e, k) => { const q = ease((lt - .05 - k * .1) / .3); e.style.opacity = q; e.style.transform = `translateY(${(1 - q) * 60}px)`; });
+  const ws = el.querySelectorAll('.w'), wt = W[cur];
+  ws.forEach((e, k) => { const t0 = wt[Math.min(k, wt.length - 1)].t0 * (ws.length === wt.length ? 1 : 0) + (ws.length === wt.length ? 0 : k * .09); const q = (lt - t0) / .22; e.style.opacity = ease(q * 2); e.style.transform = `translateY(${(1 - back(q)) * 50}px) scale(${.85 + .15 * back(q)})`; });
+  el.querySelectorAll('.item').forEach((e, k) => { const q = ease((lt - k * .06) / .3); e.style.transform = `translateX(${(1 - q) * 80}px)`; e.style.opacity = (e.classList.contains('dim') ? .35 : 1) * q; });
+  if (b.show && b.show.kind === 'gauge') {
+    const v = ease((lt - .2) / Math.min(1.6, d * .6)) * b.show.value, red = v > (b.show.danger ?? 50);
+    el.querySelector('.pct').textContent = Math.round(v) + '%'; el.querySelector('.pct').style.color = red ? RED : '#fff';
+    const a = el.querySelector('.arc'); a.setAttribute('stroke-dashoffset', 314.16 * (1 - v / 100)); a.setAttribute('stroke', red ? RED : '#7cc4ff');
+  }
+  // камера: медленный наезд + удар/вжух/тряска на смене кадра
+  let sc = 1 + .05 * (lt / d), tx = 0, ty = 0, bl = 0, rot = 0;
+  if (fx.includes('punch')) sc += .16 * (1 - ease(lt / .28));
+  if (fx.includes('whip')) { const q = ease(lt / .22); tx = (1 - q) * (cur % 2 ? -420 : 420); bl = (1 - q) * 18; }
+  if (fx.includes('shake') && lt < .45) { const k = 1 - lt / .45; tx += (rnd(t * 60) - .5) * 40 * k; ty += (rnd(t * 60 + 7) - .5) * 40 * k; rot = (rnd(t * 60 + 3) - .5) * 2 * k; }
+  const stg = document.getElementById('stage');
+  stg.style.transform = `translate(${tx}px,${ty}px) scale(${sc}) rotate(${rot}deg)`; stg.style.filter = bl ? `blur(${bl}px)` : 'none';
+  document.getElementById('flash').style.opacity = fx.includes('flash') ? Math.max(0, .85 - lt / .14) : 0;
+  // субтитры-караоке: окно до 4 слов вокруг текущего
+  const k = Math.max(0, wt.findIndex(o => lt < o.t1)), i0 = Math.floor((k < 0 ? wt.length - 1 : k) / 4) * 4;
+  const acc = ((b.show && b.show.accent) || '').toLowerCase().split(/\s+/).filter(Boolean);
+  document.getElementById('cap').innerHTML = b.show && (b.show.kind === 'slam' || b.show.kind === 'cta' || !b.show.kind) ? '' :
+    wt.slice(i0, i0 + 4).map((o, j) => { const on = lt >= o.t0; const hl = on && acc.some(a => o.w.toLowerCase().includes(a)); return `<span class="${hl ? 'hl' : on ? 'on' : ''}">${esc(o.w)}</span>`; }).join(' ');
+  document.getElementById('pg').style.width = 100 * Math.min(t / total(), 1) + '%';
+};
+render(0);
+</script></body></html>

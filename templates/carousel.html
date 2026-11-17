@@ -1,0 +1,51 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<link rel="stylesheet" href="brand.css"><script src="logo.js"></script>
+<style>
+.slide{width:1080px;height:1350px;padding:96px 88px;display:flex;flex-direction:column}
+.top{display:flex;justify-content:space-between;align-items:center;position:relative;z-index:2}
+.count{font-weight:600;font-size:26px;color:var(--muted)}
+.body{flex:1;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2}
+h1{font-family:"Inter Display",Inter;font-weight:800;font-size:100px;line-height:1.02;letter-spacing:-.035em}
+h2{font-family:"Inter Display",Inter;font-weight:800;font-size:76px;line-height:1.05;letter-spacing:-.03em;margin:30px 0 34px}
+.lead{font-size:38px;line-height:1.38;color:#c7d1de;margin-top:40px;max-width:840px}
+.num{font-family:"Inter Display";font-weight:800;font-size:210px;line-height:.8;letter-spacing:-.05em}
+.p{font-size:36px;line-height:1.42;color:#cdd6e2;white-space:pre-line}
+.box{margin-top:40px;padding:38px 44px}
+.box b{display:block;color:var(--sky);font-size:25px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px}
+.box div{font-size:34px;line-height:1.4;white-space:pre-line}
+.bottom{display:flex;justify-content:space-between;align-items:center;position:relative;z-index:2;font-size:26px;color:var(--muted)}
+.swipe{color:var(--ice);font-weight:600}
+.cta-list{list-style:none;margin-top:40px}
+.cta-list li{font-size:36px;line-height:1.35;padding:22px 0;border-bottom:1.5px solid rgba(255,255,255,.08);display:flex;gap:22px}
+.cta-list li:before{content:"";flex:none;width:14px;height:14px;margin-top:16px;border-radius:50%;background:var(--sky);box-shadow:0 0 18px var(--sky)}
+.handle{margin-top:50px;padding:34px 44px;display:flex;justify-content:space-between;align-items:center}
+.handle .h{font-family:"Inter Display";font-weight:800;font-size:52px}
+.foot{font-size:20px;color:#6f7b8b;line-height:1.4;margin-top:26px}
+.label{font-size:28px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sky)}
+.stat{font-family:"Inter Display";font-weight:800;font-size:170px;letter-spacing:-.05em;line-height:.9}
+.card{align-self:flex-end;width:560px;padding:34px 38px;margin-bottom:70px;transform:rotate(-3deg)}
+</style></head><body><div id="root"></div>
+<script>
+// SPEC: {series, handle, cover:{chip,title,accent,lead,card:{sub,status,tone}}, slides:[...], cta:{title,accent,bullets[]}}
+// slide kinds: point{title,text,fix} | story{label,title,text,box} | stat{value,title,text} | text{title,text}
+const S = window.SPEC, esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const total = S.slides.length + 2, handle = S.handle || '@crystalfin54';
+const head = n => `<div class="top"><div class="brand">${LOGO(64)}<div>CRYSTAL FINANCE<small>кредитный брокер</small></div></div><div class="count">${n}/${total}</div></div>`;
+const foot = (l, r='→') => `<div class="bottom"><span>${esc(l)}</span><span class="swipe">${r}</span></div>`;
+const wrap = (n, inner, f) => `<section class="slide frame"><div class="grid"></div>${head(n)}<div class="body">${inner}</div>${f}</section>`;
+const tone = t => t === 'good' ? 'var(--green)' : t === 'warn' ? '#ffc35c' : 'var(--red)';
+let h = '', c = S.cover;
+const card = c.card ? `<div class="glass card"><div style="font-size:24px;color:var(--muted)">${esc(c.card.sub)}</div><div style="display:flex;align-items:center;gap:16px;margin-top:18px;font-family:'Inter Display';font-weight:800;font-size:46px"><span style="width:22px;height:22px;border-radius:50%;background:${tone(c.card.tone)};box-shadow:0 0 22px ${tone(c.card.tone)}"></span>${esc(c.card.status)}</div><div style="height:12px;border-radius:6px;background:rgba(255,255,255,.08);margin-top:26px"></div><div style="height:12px;width:70%;border-radius:6px;background:rgba(255,255,255,.06);margin-top:14px"></div></div>` : '';
+h += wrap(1, `${card}${c.chip ? `<span class="chip">${esc(c.chip)}</span>` : ''}<h1 style="margin-top:44px">${esc(c.title)} <span class="accent">${esc(c.accent)}</span></h1>${c.lead ? `<p class="lead">${esc(c.lead)}</p>` : ''}`, foot('Сохраните, пригодится', 'Листайте →'));
+S.slides.forEach((s, i) => {
+  const n = i + 2; let inner;
+  if (s.kind === 'story') inner = `<div class="label">${esc(s.label)}</div><h2>${esc(s.title)}</h2><p class="p">${esc(s.text)}</p>${s.box ? `<div class="box glass"><b>${esc(s.box.label || 'Итог')}</b><div>${esc(s.box.text)}</div></div>` : ''}`;
+  else if (s.kind === 'stat') inner = `<div class="stat accent">${esc(s.value)}</div><h2>${esc(s.title)}</h2><p class="p">${esc(s.text)}</p>`;
+  else if (s.kind === 'text') inner = `<h2 style="margin-top:0">${esc(s.title)}</h2><p class="p">${esc(s.text)}</p>`;
+  else inner = `<div class="num accent">${esc(s.num || String(i + 1).padStart(2, '0'))}</div><h2>${esc(s.title)}</h2><p class="p">${esc(s.text)}</p>${s.fix ? `<div class="box glass"><b>Что делать</b><div>${esc(s.fix)}</div></div>` : ''}`;
+  h += wrap(n, inner, foot(S.series || ''));
+});
+const t = S.cta || {};
+h += wrap(total, `<h2 style="margin-top:0">${esc(t.title || 'Не знаете, что делать')} <span class="accent">${esc(t.accent || 'в вашем случае?')}</span></h2><ul class="cta-list">${(t.bullets || ['Бесплатно разберём вашу ситуацию', '50+ банков-партнёров', 'Оплата услуг кредитования — после получения денег']).map(b => `<li>${esc(b)}</li>`).join('')}</ul><div class="handle glass"><div><div style="color:var(--muted);font-size:26px;margin-bottom:8px">Напишите в Telegram</div><div class="h accent">${esc(handle)}</div></div>${LOGO(110)}</div><p class="foot">Решение о выдаче кредита принимает банк. CRYSTAL FINANCE помогает подобрать программу и подготовить заявку.</p>`, `<div class="bottom"><span>Новокузнецк · работаем по всей России</span><span></span></div>`);
+document.getElementById('root').innerHTML = h;
+</script></body></html>
