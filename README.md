@@ -21,6 +21,7 @@ SMM (Claude, каждое утро) → карточка «На проверке
 | Ваш chat_id | после запуска напишите своему боту /start — он ответит вашим chat_id | да |
 | Pexels | pexels.com/api → бесплатный ключ (живые кадры с людьми) | для рилсов |
 | Озвучка | ElevenLabs (тариф Starter или Creator) **или** Yandex SpeechKit | для рилсов |
+| Instagram | профессиональный аккаунт + приложение на developers.facebook.com → «API setup with Instagram login» → токен и ID аккаунта. Сервер — только за рубежом: из РФ Instagram недоступен | для Instagram |
 | VK | ключ администратора группы с правами wall, photos, video, groups, offline — этот шаг пройдём вместе | для VK |
 
 ## Сервер

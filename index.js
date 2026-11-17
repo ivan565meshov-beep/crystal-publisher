@@ -1,9 +1,9 @@
 // Публикатор CRYSTAL FINANCE
 // «На проверке» → собирает рилс/карусель и шлёт вам превью в Telegram с кнопками
-// «Одобрено» → в «Дату публикации» публикует в Telegram-канал и VK → «Опубликовано»
+// «Одобрено» → в «Дату публикации» публикует в Telegram-канал, VK и Instagram → «Опубликовано»
 require('./lib/env');
 const fs = require('fs'), path = require('path');
-const notion = require('./lib/notion'), tg = require('./lib/tg'), vk = require('./lib/vk');
+const notion = require('./lib/notion'), tg = require('./lib/tg'), vk = require('./lib/vk'), ig = require('./lib/ig');
 const { voiceover } = require('./lib/tts'), { fetchBroll } = require('./lib/stock');
 const { film } = require('./film'), { renderCarousel } = require('./render');
 const WORK = path.join(__dirname, 'data', 'work'), OWNER = process.env.TG_OWNER_CHAT_ID;
@@ -46,18 +46,29 @@ async function publish() {
   for (const c0 of await notion.query('Одобрено')) {
     const c = { ...c0, text: fixText(c0.text) };
     if (c.date && new Date(c.date) > new Date()) continue;
-    try {
-      const m = await build(c), links = [];
-      if (c.platforms.includes('Telegram') && process.env.TG_CHANNEL) links.push(tg.link(await tg.send(process.env.TG_CHANNEL, { text: c.text, ...m })));
-      if (c.platforms.includes('VK') && process.env.VK_TOKEN) links.push(await vk.post({ text: c.text, title: c.title, ...m }));
-      await notion.update(c.id, { status: 'Опубликовано', link: links.filter(Boolean)[0], error: '' });
-      if (OWNER) await tg.call('sendMessage', { chat_id: OWNER, text: `🚀 Опубликовано: «${c.title}»\n${links.filter(Boolean).join('\n')}` });
-      log('опубликовано', c.title);
-    } catch (e) {
-      log('ошибка публикации', c.title, e.message);
-      await notion.update(c.id, { status: 'Переделать', error: 'Публикация: ' + e.message });
-      if (OWNER) await tg.call('sendMessage', { chat_id: OWNER, text: `⚠️ Не удалось опубликовать «${c.title}»: ${e.message}` });
+    let m;
+    try { m = await build(c); } catch (e) {
+      log('ошибка сборки', c.title, e.message);
+      await notion.update(c.id, { status: 'Переделать', error: 'Сборка: ' + e.message });
+      if (OWNER) await tg.call('sendMessage', { chat_id: OWNER, text: `⚠️ Не удалось собрать «${c.title}»: ${e.message}` });
+      continue;
     }
+    // каждая площадка отдельно: ошибка в одной не мешает остальным и не вызывает повторной публикации
+    const targets = [
+      ['Telegram', process.env.TG_CHANNEL, async () => tg.link(await tg.send(process.env.TG_CHANNEL, { text: c.text, ...m }))],
+      ['VK', process.env.VK_TOKEN, () => vk.post({ text: c.text, title: c.title, ...m })],
+      ['Instagram', process.env.IG_TOKEN, () => ig.post({ text: c.text, ...m })],
+    ];
+    const links = [], errs = [];
+    for (const [name, on, run] of targets) {
+      if (!c.platforms.includes(name) || !on) continue;
+      try { const l = await run(); links.push(`${name}: ${l || 'опубликовано'}`); }
+      catch (e) { errs.push(`${name}: ${e.message}`); log('ошибка', name, c.title, e.message); }
+    }
+    const ok = links.length > 0;
+    await notion.update(c.id, { status: ok ? 'Опубликовано' : 'Переделать', link: (links[0] || '').replace(/^\w+: /, '').startsWith('http') ? links[0].replace(/^\w+: /, '') : undefined, error: errs.join('\n') });
+    if (OWNER) await tg.call('sendMessage', { chat_id: OWNER, text: `${ok ? '🚀 Опубликовано' : '⚠️ Не опубликовано'}: «${c.title}»\n${links.join('\n')}${errs.length ? '\n\nОшибки:\n' + errs.join('\n') : ''}` });
+    log(ok ? 'опубликовано' : 'не опубликовано', c.title);
   }
 }
 
@@ -101,8 +112,30 @@ async function buttons() {
   }
 }
 
-async function tick() {
-  for (const f of [buttons, previews, publish]) { try { await f(); } catch (e) { log(f.name, e.message); } }
+// раздаём картинки карусели для Instagram (он забирает их по ссылке)
+if (process.env.PUBLIC_URL) {
+  const pub = path.join(__dirname, 'data', 'public'); fs.mkdirSync(pub, { recursive: true });
+  require('http').createServer((req, res) => {
+    const name = path.basename(decodeURIComponent((req.url || '').split('?')[0]));
+    const f = path.join(pub, name);
+    if (!/^[\w.-]+\.jpg$/.test(name) || !fs.existsSync(f)) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, { 'Content-Type': 'image/jpeg' }); fs.createReadStream(f).pipe(res);
+  }).listen(Number(process.env.PORT || 8080));
+  // убираем картинки старше суток
+  setInterval(() => { for (const n of fs.readdirSync(pub)) { const f = path.join(pub, n); if (Date.now() - fs.statSync(f).mtimeMs > 864e5) fs.rmSync(f, { force: true }); } }, 36e5);
 }
+// продлеваем токен Instagram раз в неделю
+if (process.env.IG_TOKEN) setInterval(() => ig.refreshToken().then(() => log('токен Instagram продлён')).catch(e => log(e.message)), 7 * 864e5);
+
+// кнопки проверяем часто, сборку и публикацию — без наложения запусков (рендер идёт несколько минут)
+let busy = false;
+async function work() {
+  if (busy) return; busy = true;
+  for (const f of [previews, publish]) { try { await f(); } catch (e) { log(f.name, e.message); } }
+  busy = false;
+}
+let polling = false;
+async function poll() { if (polling) return; polling = true; try { await buttons(); } catch (e) { log('buttons', e.message); } polling = false; }
 log('Публикатор запущен');
-tick(); setInterval(tick, 60 * 1000);
+poll(); work();
+setInterval(poll, 3000); setInterval(work, 60 * 1000);
