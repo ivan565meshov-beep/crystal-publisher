@@ -87,14 +87,23 @@ async function film(spec, out, voiceDir) {
     if (/whip/.test(f)) { ins.push('-i', fx.whoosh); parts.push({ i: ins.length / 2 - 1, ms: Math.max(0, ms - 120), vol: .45 }); }
     if (/punch|shake/.test(f)) { ins.push('-i', fx.hit); parts.push({ i: ins.length / 2 - 1, ms, vol: .6 }); }
   });
-  // музыка: громче без голоса, под голосом автоматически приглушается
-  const music = await beat(tmp, n / FPS);
-  ins.push('-i', music); const mi = ins.length / 2 - 1;
+  // музыка: только живые треки из data/music (mp3/wav), синтезированный бит убран — он «пикал».
+  // Нет треков — ролик идёт без музыки. Под голосом музыка автоматически приглушается.
+  const MD = path.join(__dirname, 'data', 'music');
+  const tracks = fs.existsSync(MD) ? fs.readdirSync(MD).filter(f => /\.(mp3|wav|m4a)$/i.test(f)) : [];
+  let mi = -1;
+  if (tracks.length) {
+    const t = path.join(MD, tracks[Math.floor(Math.random() * tracks.length)]);
+    ins.push('-stream_loop', '-1', '-i', t); mi = (ins.filter(x => x === '-i').length) - 1;
+  }
   const mix = parts.map((q, k) => `[${q.i + 2}:a]volume=${q.vol},adelay=${q.ms}|${q.ms}[a${k}]`).join(';') +
     `;${parts.map((_, k) => `[a${k}]`).join('')}amix=inputs=${parts.length}:normalize=0[fg]`;
-  const a = voice.length
-    ? `${mix};[fg]asplit=2[fg1][sc];[${mi + 2}:a]volume=0.55[mu];[mu][sc]sidechaincompress=threshold=0.02:ratio=10:attack=5:release=350[duck];[fg1][duck]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`
-    : `${mix};[${mi + 2}:a]volume=1.3[mu];[fg][mu]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`;
+  const fade = `afade=t=in:d=0.4,afade=t=out:st=${Math.max(0, n / FPS - 1).toFixed(2)}:d=1`;
+  const a = mi < 0
+    ? `${mix};[fg]alimiter=limit=0.95[aout]`
+    : voice.length
+    ? `${mix};[fg]asplit=2[fg1][sc];[${mi + 2}:a]volume=0.35,${fade}[mu];[mu][sc]sidechaincompress=threshold=0.02:ratio=8:attack=5:release=400[duck];[fg1][duck]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`
+    : `${mix};[${mi + 2}:a]volume=0.9,${fade}[mu];[fg][mu]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`;
   await ff(['-i', path.join(tmp, 'base.mp4'), '-framerate', String(FPS), '-i', `${tmp}/f%05d.png`, ...ins,
     '-filter_complex', `[0:v][1:v]overlay=0:0:shortest=1[vout];${a}`, '-map', '[vout]', '-map', '[aout]',
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k',
