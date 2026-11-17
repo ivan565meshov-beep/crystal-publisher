@@ -42,7 +42,9 @@ const att = () => { try { return JSON.parse(fs.readFileSync(ATT)); } catch { ret
 const setAtt = o => { fs.mkdirSync(path.dirname(ATT), { recursive: true }); fs.writeFileSync(ATT, JSON.stringify(o)); };
 async function previews() {
   if (!/^-?\d+$/.test(String(OWNER || ''))) return; // сначала напишите боту /start и впишите chat_id в .env
-  for (const c of await notion.query('На проверке')) {
+  // мультсерии первыми: их клипы по ссылкам ElevenLabs живут несколько часов
+  const list = (await notion.query('На проверке')).sort((a, b) => /мультсери/i.test(b.title) - /мультсери/i.test(a.title));
+  for (const c of list) {
     if (c.preview) continue;
     const a = att(); a[c.id] = (a[c.id] || 0) + 1; setAtt(a);
     if (a[c.id] > 3) { await notion.update(c.id, { preview: true, error: 'Превью: сборка не удалась 3 раза — проверьте сценарий' }); continue; }
