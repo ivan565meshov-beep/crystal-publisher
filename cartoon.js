@@ -24,7 +24,17 @@ async function cartoon(spec, dir) {
   for (let i = 0; i < spec.clips.length; i++) {
     const raw = path.join(tmp, `raw${i}.mp4`), norm = path.join(tmp, `p${i}.mp4`);
     await download(spec.clips[i], raw);
-    await ff(['-i', raw, '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1',
+    // субтитры: мелко внизу, реплика клипа (spec.subs[i]); теги эмоций [..] убираем, длинные строки переносим
+    let sub = '';
+    const line = (spec.subs?.[i] || '').replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+    if (line && FONT) {
+      const tf = path.join(tmp, `sub${i}.txt`), out = []; let cur = '';
+      for (const w of line.split(' ')) { if ((cur + ' ' + w).trim().length > 30) { out.push(cur.trim()); cur = w; } else cur += ' ' + w; }
+      if (cur.trim()) out.push(cur.trim());
+      fs.writeFileSync(tf, out.join('\n'));
+      sub = `,drawtext=fontfile=${FONT}:textfile=${tf}:fontcolor=white:fontsize=40:line_spacing=8:borderw=3:bordercolor=black@0.85:box=1:boxcolor=black@0.35:boxborderw=14:x=(w-tw)/2:y=h-th-170`;
+    }
+    await ff(['-i', raw, '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1' + sub,
       '-af', 'aresample=44100,aformat=channel_layouts=stereo', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', norm]);
     parts.push(norm);
   }
