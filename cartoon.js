@@ -11,7 +11,7 @@ const dur = f => parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entri
 const FONT = ['/usr/share/fonts/opentype/inter/Inter-SemiBold.otf', '/usr/share/fonts/opentype/inter/Inter-Bold.otf'].find(f => fs.existsSync(f));
 
 async function download(url, out) {
-  const r = await fetch(url);
+  const r = await fetch(url, { signal: AbortSignal.timeout(120000) });
   if (!r.ok) throw new Error(`клип не скачался (${r.status}) — ссылка могла устареть`);
   fs.writeFileSync(out, Buffer.from(await r.arrayBuffer()));
 }

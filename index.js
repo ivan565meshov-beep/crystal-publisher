@@ -7,6 +7,7 @@ const notion = require('./lib/notion'), tg = require('./lib/tg'), vk = require('
 const { voiceover } = require('./lib/tts'), { fetchBroll } = require('./lib/stock');
 const { film } = require('./film'), { renderCarousel } = require('./render');
 const WORK = path.join(__dirname, 'data', 'work'), OWNER = process.env.TG_OWNER_CHAT_ID;
+const ENGINE = '2';
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
 // в старых карточках вместо имени бота стоит заглушка <бот>
@@ -16,7 +17,8 @@ const fixText = t => (t || '').replace(/\\*<бот>|%3C%D0%B1%D0%BE%D1%82%3E/gi,
 // собрать медиа по карточке (один раз, кладём в кэш)
 async function build(card) {
   const dir = path.join(WORK, card.id), done = path.join(dir, 'media.json');
-  if (fs.existsSync(done)) return JSON.parse(fs.readFileSync(done));
+  // ENGINE — версия движка: ролики, собранные старой версией (например, со сломанным звуком), пересобираются
+  if (fs.existsSync(done)) { const m = JSON.parse(fs.readFileSync(done)); if (m.engine === ENGINE) return m; fs.rmSync(dir, { recursive: true, force: true }); }
   fs.mkdirSync(dir, { recursive: true });
   const spec = await notion.spec(card.id); let media = {};
   // рилс или карусель без сценария не публикуем голым текстом — возвращаем SMM
@@ -33,7 +35,7 @@ async function build(card) {
   } else if (spec?.type === 'carousel' || (spec && card.format === 'Карусель')) {
     media = { photos: await renderCarousel(spec, path.join(dir, 'slides')) };
   }
-  fs.writeFileSync(done, JSON.stringify(media)); return media;
+  media.engine = ENGINE; fs.writeFileSync(done, JSON.stringify(media)); return media;
 }
 
 // счётчик попыток: если карточка роняет сборку, после 3 попыток откладываем её с ошибкой
@@ -52,7 +54,7 @@ async function previews() {
     try {
       // отметка «собираю»: если процесс упадёт посреди сборки, после перезапуска это будет видно в карточке
       fs.writeFileSync(BUILDING, JSON.stringify({ id: c.id, title: c.title, at: Date.now() }));
-      if (!fs.existsSync(path.join(WORK, c.id, 'media.json'))) await tg.send(OWNER, { text: `⏳ Собираю «${c.title}» — пришлю через несколько минут` }).catch(() => {});
+      await tg.send(OWNER, { text: `⏳ Собираю «${c.title}» — пришлю через несколько минут` }).catch(() => {});
       const m = await build(c);
       fs.rmSync(BUILDING, { force: true });
       await tg.send(OWNER, { text: fixText(c.text), ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
