@@ -31,6 +31,17 @@ async function beat(dir, seconds) {
 // фон бита: стоковое видео 9:16 с наездом камеры и фирменной цветокоррекцией, либо фирменный цвет
 async function baseSegment(beat, d, out) {
   const n = Math.ceil(d * FPS);
+  // картинка из библиотеки: плавный наезд или проезд камеры (направление чередуется)
+  if (beat.broll_file && /\.(png|jpe?g|webp)$/i.test(beat.broll_file) && fs.existsSync(beat.broll_file)) try {
+    const dirn = (baseSegment.k = (baseSegment.k || 0) + 1) % 3;
+    const z = dirn === 0 ? `zoompan=z='1.0+0.0012*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'`
+      : dirn === 1 ? `zoompan=z='1.12-0.0010*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'`
+      : `zoompan=z='1.10':x='(iw-iw/zoom)*on/${n}':y='ih/2-(ih/zoom/2)'`;
+    await ff(['-loop', '1', '-i', beat.broll_file, '-frames:v', String(n),
+      '-vf', `scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,${z}:d=1:s=1080x1920:fps=${FPS},eq=saturation=1.05:contrast=1.04,setsar=1`,
+      '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', out]);
+    return;
+  } catch (e) { console.warn('кадр-картинка пропущен:', e.message.slice(0, 120)); }
   if (beat.broll_file && fs.existsSync(beat.broll_file)) try {
     const z = `zoompan=z='1.14-0.14*min(on/7\\,1)+0.0016*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=${FPS}`;
     await ff(['-stream_loop', '-1', '-ss', String(beat.broll_start || 0.4), '-i', beat.broll_file, '-frames:v', String(n),
