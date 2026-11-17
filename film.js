@@ -89,11 +89,11 @@ async function film(spec, out, voiceDir) {
   });
   // музыка: только живые треки из data/music (mp3/wav), синтезированный бит убран — он «пикал».
   // Нет треков — ролик идёт без музыки. Под голосом музыка автоматически приглушается.
-  const MD = path.join(__dirname, 'data', 'music');
-  const tracks = fs.existsSync(MD) ? fs.readdirSync(MD).filter(f => /\.(mp3|wav|m4a)$/i.test(f)) : [];
+  const tracks = [path.join(__dirname, 'assets', 'music'), path.join(__dirname, 'data', 'music')]
+    .flatMap(d => fs.existsSync(d) ? fs.readdirSync(d).filter(f => /\.(mp3|wav|m4a)$/i.test(f)).map(f => path.join(d, f)) : []);
   let mi = -1;
   if (tracks.length) {
-    const t = path.join(MD, tracks[Math.floor(Math.random() * tracks.length)]);
+    const t = tracks[Math.floor(Math.random() * tracks.length)];
     ins.push('-stream_loop', '-1', '-i', t); mi = (ins.filter(x => x === '-i').length) - 1;
   }
   const mix = parts.map((q, k) => `[${q.i + 2}:a]volume=${q.vol},adelay=${q.ms}|${q.ms}[a${k}]`).join(';') +
