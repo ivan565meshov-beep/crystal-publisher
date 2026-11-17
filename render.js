@@ -3,7 +3,7 @@ const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs');
 async function renderCarousel(spec, outDir) {
   fs.mkdirSync(outDir, { recursive: true });
-  const b = await chromium.launch();
+  const b = await chromium.launch({ args: ['--disable-dev-shm-usage', '--disable-gpu', '--no-zygote'] });
   const p = await b.newPage({ viewport: { width: 1080, height: 1350 } });
   await p.addInitScript(s => { window.SPEC = s; }, spec);
   await p.goto('file://' + path.join(__dirname, 'templates', 'carousel.html'));

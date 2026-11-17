@@ -38,7 +38,7 @@ async function film(spec, out, voiceDir) {
     const wj = path.join(voiceDir, 'words.json'); if (fs.existsSync(wj)) WORDS = JSON.parse(fs.readFileSync(wj));
   }
   // 1) графический слой с прозрачностью
-  const b = await chromium.launch();
+  const b = await chromium.launch({ args: ['--disable-dev-shm-usage', '--disable-gpu', '--no-zygote'] });
   const p = await b.newPage({ viewport: { width: 1080, height: 1920 } });
   await p.addInitScript(([s, d, w]) => { window.SPEC = s; if (d) window.DUR = d; if (w) window.WORDS = w; }, [spec, DUR, WORDS]);
   await p.goto('file://' + path.join(T, 'reel.html'));

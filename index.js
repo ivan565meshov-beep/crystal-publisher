@@ -30,19 +30,26 @@ async function build(card) {
   fs.writeFileSync(done, JSON.stringify(media)); return media;
 }
 
+// счётчик попыток: если карточка роняет сборку, после 3 попыток откладываем её с ошибкой
+const ATT = path.join(__dirname, 'data', 'attempts.json');
+const att = () => { try { return JSON.parse(fs.readFileSync(ATT)); } catch { return {}; } };
+const setAtt = o => { fs.mkdirSync(path.dirname(ATT), { recursive: true }); fs.writeFileSync(ATT, JSON.stringify(o)); };
 async function previews() {
-  if (!OWNER) return; // сначала напишите боту /start и впишите chat_id в .env
+  if (!/^-?\d+$/.test(String(OWNER || ''))) return; // сначала напишите боту /start и впишите chat_id в .env
   for (const c of await notion.query('На проверке')) {
     if (c.preview) continue;
+    const a = att(); a[c.id] = (a[c.id] || 0) + 1; setAtt(a);
+    if (a[c.id] > 3) { await notion.update(c.id, { preview: true, error: 'Превью: сборка не удалась 3 раза — проверьте сценарий' }); continue; }
     try {
       const m = await build(c);
       await tg.send(OWNER, { text: c.text, ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
         buttons: [[{ text: '✅ Одобрить', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
       await notion.update(c.id, { preview: true, error: '' }); log('превью', c.title);
+      const a2 = att(); delete a2[c.id]; setAtt(a2);
     } catch (e) {
       log('ошибка превью', c.title, e.message);
       if (e.noSpec) await notion.update(c.id, { status: 'Переделать', edits: 'Нет JSON-сценария: сделай рилс/карусель по формату из инструкции SMM', error: '' });
-      else await notion.update(c.id, { error: 'Превью: ' + e.message, preview: true });
+      else await notion.update(c.id, { error: 'Превью (попытка ' + (att()[c.id] || 1) + '): ' + e.message.slice(0, 300) });
     }
   }
 }
