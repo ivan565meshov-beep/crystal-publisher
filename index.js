@@ -24,7 +24,9 @@ async function build(card) {
     fs.rmSync(dir, { recursive: true, force: true });
     const e = new Error('нет JSON-сценария в карточке'); e.noSpec = true; throw e;
   }
-  if (spec?.type === 'reel' || (spec && card.format === 'Reels')) {
+  if (spec?.type === 'cartoon') {
+    media = { video: await require('./cartoon').cartoon(spec, dir) };
+  } else if (spec?.type === 'reel' || (spec && card.format === 'Reels')) {
     await fetchBroll(spec, path.join(dir, 'broll'));
     const vd = await voiceover(spec.beats, path.join(dir, 'voice'));
     const out = path.join(dir, 'reel.mp4'); await film(spec, out, vd); media = { video: out };
@@ -184,6 +186,10 @@ async function work() {
 }
 let polling = false;
 async function poll() { if (polling) return; polling = true; try { await buttons(); } catch (e) { log('buttons', e.message); } polling = false; }
+// автообновление: раз в 10 минут подтягиваем код с GitHub; если он изменился — перезапуск (pm2 поднимет снова)
+setInterval(() => { if (busy) return; require('child_process').execFile('git', ['pull', '--ff-only'], { cwd: __dirname }, (e, out) => {
+  if (!e && out && !/Already up to date|Уже актуально/i.test(out)) { log('обновление кода, перезапуск'); process.exit(0); }
+}); }, 10 * 60 * 1000);
 log('Публикатор запущен');
 poll(); work();
 setInterval(poll, 3000); setInterval(work, 60 * 1000);
