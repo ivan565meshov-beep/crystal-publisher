@@ -104,8 +104,11 @@ async function film(spec, out, voiceDir) {
     : voice.length
     ? `${mix};[fg]asplit=2[fg1][sc];[${mi + 2}:a]volume=${process.env.MUSIC_VOL || 0.12},${fade}[mu];[mu][sc]sidechaincompress=threshold=0.015:ratio=12:attack=5:release=500[duck];[fg1][duck]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`
     : `${mix};[${mi + 2}:a]volume=0.35,${fade}[mu];[fg][mu]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`;
-  await ff(['-i', path.join(tmp, 'base.mp4'), '-framerate', String(FPS), '-i', `${tmp}/f%05d.png`, ...ins,
-    '-filter_complex', `[0:v][1:v]overlay=0:0:shortest=1[vout];${a}`, '-map', '[vout]', '-map', '[aout]',
+  // звук сводим отдельным шагом: при 20+ входах вместе с видео ffmpeg терял голос во второй половине ролика
+  const wav = path.join(tmp, 'mix.wav');
+  await ff([...ins, '-filter_complex', a.replace(/\[(\d+):a\]/g, (m, k) => `[${k - 2}:a]`), '-map', '[aout]', '-t', String(n / FPS), '-ar', '44100', '-ac', '2', wav]);
+  await ff(['-i', path.join(tmp, 'base.mp4'), '-framerate', String(FPS), '-i', `${tmp}/f%05d.png`, '-i', wav,
+    '-filter_complex', `[0:v][1:v]overlay=0:0:shortest=1[vout]`, '-map', '[vout]', '-map', '2:a',
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k',
     '-t', String(n / FPS), '-movflags', '+faststart', out]);
   fs.rmSync(tmp, { recursive: true, force: true });
