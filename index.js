@@ -193,5 +193,7 @@ setInterval(() => { if (busy) return; require('child_process').execFile('git', [
   if (!e && out && !/Already up to date|Уже актуально/i.test(out)) { log('обновление кода, перезапуск'); process.exit(0); }
 }); }, 10 * 60 * 1000);
 log('Публикатор запущен');
+// библиотеку кадров качаем сразу при запуске: ссылки на картинки действуют ограниченное время
+require('./lib/library').ensure().then(() => log('библиотека кадров готова')).catch(e => log('library', e.message));
 poll(); work();
 setInterval(poll, 3000); setInterval(work, 60 * 1000);
