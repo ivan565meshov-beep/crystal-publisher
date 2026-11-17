@@ -2,30 +2,31 @@
 // spec.beats[i].broll_file — путь к скачанному стоковому видео (подкладывается фоном под графику)
 // voiceDir — beat00.mp3, beat01.mp3 … (озвучка по битам) и words.json (тайминги слов, необязательно)
 const { chromium } = require('playwright');
-const { execFileSync } = require('child_process');
+const { execFileSync, execFile } = require('child_process');
 const fs = require('fs'), path = require('path'), os = require('os');
 const T = path.join(__dirname, 'templates'), FPS = 30;
-const ff = a => execFileSync('ffmpeg', ['-y', '-v', 'error', ...a]);
+// ffmpeg запускаем асинхронно, чтобы бот отвечал, пока идёт склейка видео
+const ff = a => new Promise((res, rej) => execFile('ffmpeg', ['-y', '-v', 'error', ...a], { maxBuffer: 1 << 26 }, (e, o, err) => e ? rej(new Error('ffmpeg: ' + (err || e.message).toString().slice(0, 300))) : res()));
 const dur = f => parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f]).toString());
 
 // звуковые акценты синтезируем сами — без чужой музыки и лицензий
-function sfx(dir) {
+async function sfx(dir) {
   const w = path.join(dir, 'whoosh.wav'), h = path.join(dir, 'hit.wav');
-  ff(['-f', 'lavfi', '-i', 'anoisesrc=d=0.35:c=pink:a=0.6', '-af', 'highpass=f=600,lowpass=f=5000,afade=t=in:d=0.18,afade=t=out:st=0.18:d=0.17,volume=0.7', w]);
-  ff(['-f', 'lavfi', '-i', "aevalsrc='0.9*sin(2*PI*(55+90*exp(-25*t))*t)*exp(-9*t)':d=0.5", '-af', 'volume=1.2', h]);
+  await ff(['-f', 'lavfi', '-i', 'anoisesrc=d=0.35:c=pink:a=0.6', '-af', 'highpass=f=600,lowpass=f=5000,afade=t=in:d=0.18,afade=t=out:st=0.18:d=0.17,volume=0.7', w]);
+  await ff(['-f', 'lavfi', '-i', "aevalsrc='0.9*sin(2*PI*(55+90*exp(-25*t))*t)*exp(-9*t)':d=0.5", '-af', 'volume=1.2', h]);
   return { whoosh: w, hit: h };
 }
 
 // фон бита: стоковое видео 9:16 с наездом камеры и фирменной цветокоррекцией, либо фирменный цвет
-function baseSegment(beat, d, out) {
+async function baseSegment(beat, d, out) {
   const n = Math.ceil(d * FPS);
   if (beat.broll_file && fs.existsSync(beat.broll_file)) {
     const z = `zoompan=z='1.14-0.14*min(on/7\\,1)+0.0016*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=${FPS}`;
-    ff(['-stream_loop', '-1', '-ss', String(beat.broll_start || 0.4), '-i', beat.broll_file, '-frames:v', String(n),
+    await ff(['-stream_loop', '-1', '-ss', String(beat.broll_start || 0.4), '-i', beat.broll_file, '-frames:v', String(n),
       '-vf', `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,${z},eq=saturation=0.86:contrast=1.06,colorbalance=bs=0.06:bm=0.03,setsar=1`,
       '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', out]);
   } else {
-    ff(['-f', 'lavfi', '-i', `color=c=0x14171c:s=1080x1920:r=${FPS}`, '-frames:v', String(n), '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', out]);
+    await ff(['-f', 'lavfi', '-i', `color=c=0x14171c:s=1080x1920:r=${FPS}`, '-frames:v', String(n), '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', out]);
   }
 }
 
@@ -52,14 +53,15 @@ async function film(spec, out, voiceDir) {
   await b.close();
   // 2) фон: по сегменту на бит, точно по кадрам
   const list = [];
-  spec.beats.forEach((bt, i) => {
+  for (let i = 0; i < spec.beats.length; i++) {
+    const bt = spec.beats[i];
     const f0 = Math.round(starts[i] * FPS), f1 = i + 1 < starts.length ? Math.round(starts[i + 1] * FPS) : n;
-    const seg = path.join(tmp, `seg${i}.mp4`); baseSegment(bt, (f1 - f0) / FPS, seg); list.push(`file '${seg}'`);
-  });
+    const seg = path.join(tmp, `seg${i}.mp4`); await baseSegment(bt, (f1 - f0) / FPS, seg); list.push(`file '${seg}'`);
+  }
   fs.writeFileSync(path.join(tmp, 'list.txt'), list.join('\n'));
-  ff(['-f', 'concat', '-safe', '0', '-i', path.join(tmp, 'list.txt'), '-c', 'copy', path.join(tmp, 'base.mp4')]);
+  await ff(['-f', 'concat', '-safe', '0', '-i', path.join(tmp, 'list.txt'), '-c', 'copy', path.join(tmp, 'base.mp4')]);
   // 3) звук: озвучка + вжухи/удары на сменах кадра
-  const fx = sfx(tmp), ins = [], parts = [];
+  const fx = await sfx(tmp), ins = [], parts = [];
   spec.beats.forEach((bt, i) => {
     const ms = Math.round(starts[i] * 1000), f = bt.fx || '';
     if (voice.length) { ins.push('-i', voice[i]); parts.push({ i: ins.length / 2 - 1, ms, vol: 1 }); }
@@ -68,7 +70,7 @@ async function film(spec, out, voiceDir) {
   });
   const a = parts.map((q, k) => `[${q.i + 2}:a]volume=${q.vol},adelay=${q.ms}|${q.ms}[a${k}]`).join(';') +
     `;${parts.map((_, k) => `[a${k}]`).join('')}amix=inputs=${parts.length}:normalize=0,alimiter=limit=0.95[aout]`;
-  ff(['-i', path.join(tmp, 'base.mp4'), '-framerate', String(FPS), '-i', `${tmp}/f%05d.png`, ...ins,
+  await ff(['-i', path.join(tmp, 'base.mp4'), '-framerate', String(FPS), '-i', `${tmp}/f%05d.png`, ...ins,
     '-filter_complex', `[0:v][1:v]overlay=0:0:shortest=1[vout];${a}`, '-map', '[vout]', '-map', '[aout]',
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k',
     '-t', String(n / FPS), '-movflags', '+faststart', out]);
