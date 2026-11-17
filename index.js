@@ -15,6 +15,11 @@ async function build(card) {
   if (fs.existsSync(done)) return JSON.parse(fs.readFileSync(done));
   fs.mkdirSync(dir, { recursive: true });
   const spec = await notion.spec(card.id); let media = {};
+  // рилс или карусель без сценария не публикуем голым текстом — возвращаем SMM
+  if (!spec && (card.format === 'Reels' || card.format === 'Карусель')) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    const e = new Error('нет JSON-сценария в карточке'); e.noSpec = true; throw e;
+  }
   if (spec?.type === 'reel' || (spec && card.format === 'Reels')) {
     await fetchBroll(spec, path.join(dir, 'broll'));
     const vd = await voiceover(spec.beats, path.join(dir, 'voice'));
@@ -34,7 +39,11 @@ async function previews() {
       await tg.send(OWNER, { text: c.text, ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
         buttons: [[{ text: '✅ Одобрить', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
       await notion.update(c.id, { preview: true, error: '' }); log('превью', c.title);
-    } catch (e) { log('ошибка превью', c.title, e.message); await notion.update(c.id, { error: 'Превью: ' + e.message, preview: true }); }
+    } catch (e) {
+      log('ошибка превью', c.title, e.message);
+      if (e.noSpec) await notion.update(c.id, { status: 'Переделать', edits: 'Нет JSON-сценария: сделай рилс/карусель по формату из инструкции SMM', error: '' });
+      else await notion.update(c.id, { error: 'Превью: ' + e.message, preview: true });
+    }
   }
 }
 
@@ -42,10 +51,15 @@ async function previews() {
 const BOT = process.env.TG_BOT_USERNAME || 'croublisher_bot';
 const fixText = t => (t || '').replace(/\\*<бот>|%3C%D0%B1%D0%BE%D1%82%3E/gi, BOT);
 
+// не чаще одного поста в MIN_GAP_MIN минут (по умолчанию 120) — чтобы просроченные не вышли пачкой
+const LAST = path.join(__dirname, 'data', 'last_publish.txt');
+const gapOk = () => { try { return Date.now() - Number(fs.readFileSync(LAST, 'utf8')) > Number(process.env.MIN_GAP_MIN || 120) * 6e4; } catch { return true; } };
 async function publish() {
-  for (const c0 of await notion.query('Одобрено')) {
+  const due = (await notion.query('Одобрено')).filter(c => !c.date || new Date(c.date) <= new Date())
+    .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+  for (const c0 of due) {
+    if (!gapOk()) return;
     const c = { ...c0, text: fixText(c0.text) };
-    if (c.date && new Date(c.date) > new Date()) continue;
     let m;
     try { m = await build(c); } catch (e) {
       log('ошибка сборки', c.title, e.message);
@@ -66,6 +80,7 @@ async function publish() {
       catch (e) { errs.push(`${name}: ${e.message}`); log('ошибка', name, c.title, e.message); }
     }
     const ok = links.length > 0;
+    if (ok) { fs.mkdirSync(path.dirname(LAST), { recursive: true }); fs.writeFileSync(LAST, String(Date.now())); }
     await notion.update(c.id, { status: ok ? 'Опубликовано' : 'Переделать', link: (links[0] || '').replace(/^\w+: /, '').startsWith('http') ? links[0].replace(/^\w+: /, '') : undefined, error: errs.join('\n') });
     if (OWNER) await tg.call('sendMessage', { chat_id: OWNER, text: `${ok ? '🚀 Опубликовано' : '⚠️ Не опубликовано'}: «${c.title}»\n${links.join('\n')}${errs.length ? '\n\nОшибки:\n' + errs.join('\n') : ''}` });
     log(ok ? 'опубликовано' : 'не опубликовано', c.title);
