@@ -7,12 +7,30 @@ const notion = require('./lib/notion'), tg = require('./lib/tg'), vk = require('
 const { voiceover } = require('./lib/tts'), { fetchBroll } = require('./lib/stock');
 const { film } = require('./film'), { renderCarousel } = require('./render');
 const WORK = path.join(__dirname, 'data', 'work'), OWNER = process.env.TG_OWNER_CHAT_ID;
-const ENGINE = '3';
+const ENGINE = '4';
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
 // в старых карточках вместо имени бота стоит заглушка <бот>
 const BOT = process.env.TG_BOT_USERNAME || 'croublisher_bot';
 const fixText = t => (t || '').replace(/\\*<бот>|%3C%D0%B1%D0%BE%D1%82%3E/gi, BOT);
+
+// Рилсы выходят в Instagram — там нет бота и Telegram. Финальный призыв всегда один:
+// «Подпишись и напиши в директ кодовое слово «…»» (слово своё в каждом ролике), без ботов и ссылок.
+function instaCta(spec) {
+  spec.handle = 'в директ';
+  const b = spec.beats?.[spec.beats.length - 1];
+  if (!b || b.show?.kind !== 'cta') return;
+  const kw = (b.show.keyword || 'РАЗБОР').toUpperCase();
+  b.show.keyword = kw; b.show.handle = 'в директ'; b.show.sub = 'Подпишись';
+  if (/бот|telegram|телеграм|канал|t\.me/i.test(b.say) || !/директ/i.test(b.say))
+    b.say = `Подпишись и напиши в директ кодовое слово «${kw.toLowerCase()}» — разберём твою ситуацию бесплатно.`;
+}
+const instaText = (t, spec) => {
+  const kw = spec?.beats?.at(-1)?.show?.keyword;
+  let out = (t || '').split('\n').filter(l => !/бот|t\.me|telegram|телеграм|<бот>|@crystalfin54|подпишитесь на канал/i.test(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  if (kw && !/директ/i.test(out)) out += `\n\nПодпишись и напиши в директ кодовое слово ${kw} — разберём твою ситуацию бесплатно.`;
+  return out;
+};
 
 // собрать медиа по карточке (один раз, кладём в кэш)
 async function build(card) {
@@ -29,6 +47,7 @@ async function build(card) {
   if (spec?.type === 'cartoon') {
     media = { video: await require('./cartoon').cartoon(spec, dir) };
   } else if (spec?.type === 'reel' || (spec && card.format === 'Reels')) {
+    instaCta(spec);
     await fetchBroll(spec, path.join(dir, 'broll'));
     const vd = await voiceover(spec.beats, path.join(dir, 'voice'));
     const out = path.join(dir, 'reel.mp4'); await film(spec, out, vd); media = { video: out };
@@ -61,7 +80,7 @@ async function previews() {
       await tg.send(OWNER, { text: `⏳ Собираю «${c.title}» — пришлю через несколько минут` }).catch(() => {});
       const m = await build(c);
       fs.rmSync(BUILDING, { force: true });
-      await tg.send(OWNER, { text: fixText(c.text), ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
+      await tg.send(OWNER, { text: c.format === 'Reels' ? instaText(c.text, await notion.spec(c.id)) : fixText(c.text), ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
         buttons: [[{ text: '✅ Одобрить', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
       await notion.update(c.id, { preview: true, error: '' }); log('превью', c.title);
       const a2 = att(); delete a2[c.id]; setAtt(a2);
