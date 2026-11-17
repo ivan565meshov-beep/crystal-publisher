@@ -1,8 +1,37 @@
 {
-  "narrator": {"name": "Диктор рилсов", "voice": "Evgeniy Rybakov", "voice_id": "ws3YyKFd5whKb21yaXES"},
-  "crystal":  {"name": "Кристалл", "role": "герой-помощник CRYSTAL FINANCE: спокойный, умный, с иронией", "voice": "Miron - Charismatic Storyteller", "voice_id": "VlXLedwkU4YDM3HBGpiI"},
-  "gena":     {"name": "Гена", "role": "таксист, эмоциональный, хитрый, вечно что-то учудит", "voice": "Mishka Yaponcik - Odessa Rogue Charm", "voice_id": "RLRdvNFwJJct2XZOgfzy"},
-  "olya":     {"name": "Оля", "role": "молодая девушка: ипотека, первая карта, свадьба", "voice": "Ekaterina - Soft, Silky and Tender", "voice_id": "GN4wbsbejSnGSa1AzjH5"},
-  "marina":   {"name": "Марина", "role": "взрослая женщина, предприниматель / мама", "voice": "Kate - Calm, Natural and Versatile", "voice_id": "7G0NvIkWRnU0Dqjgz13p"},
-  "bank":     {"name": "Строгий Банк / Пётр Палыч", "role": "голос банка-отказника или строгого начальника", "voice": "Nester Surovy - Gravely yet Refined", "voice_id": "pM78bgjPVk0JXtaEnFoj"}
+ "narrator": {
+  "name": "Диктор рилсов",
+  "voice": "Evgeniy Rybakov",
+  "voice_id": "ws3YyKFd5whKb21yaXES"
+ },
+ "crystal": {
+  "name": "Кристалл",
+  "role": "мудрец-наставник CRYSTAL FINANCE: спокойный, серьёзный, объясняет коротко и по делу",
+  "voice": "Nester Surovy - Gravely yet Refined",
+  "voice_id": "pM78bgjPVk0JXtaEnFoj"
+ },
+ "gena": {
+  "name": "Гена",
+  "role": "таксист, эмоциональный, хитрый, вечно что-то учудит",
+  "voice": "Mishka Yaponcik - Odessa Rogue Charm",
+  "voice_id": "RLRdvNFwJJct2XZOgfzy"
+ },
+ "olya": {
+  "name": "Оля",
+  "role": "молодая девушка: ипотека, первая карта, свадьба",
+  "voice": "Ekaterina - Soft, Silky and Tender",
+  "voice_id": "GN4wbsbejSnGSa1AzjH5"
+ },
+ "marina": {
+  "name": "Марина",
+  "role": "взрослая женщина, предприниматель / мама",
+  "voice": "Kate - Calm, Natural and Versatile",
+  "voice_id": "7G0NvIkWRnU0Dqjgz13p"
+ },
+ "bank": {
+  "name": "Строгий Банк / Пётр Палыч",
+  "role": "голос банка-отказника или строгого начальника",
+  "voice": "Miron - Charismatic Storyteller (временно)",
+  "voice_id": "VlXLedwkU4YDM3HBGpiI"
+ }
 }
