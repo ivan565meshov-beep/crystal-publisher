@@ -20,12 +20,14 @@ async function sfx(dir) {
 // фон бита: стоковое видео 9:16 с наездом камеры и фирменной цветокоррекцией, либо фирменный цвет
 async function baseSegment(beat, d, out) {
   const n = Math.ceil(d * FPS);
-  if (beat.broll_file && fs.existsSync(beat.broll_file)) {
+  if (beat.broll_file && fs.existsSync(beat.broll_file)) try {
     const z = `zoompan=z='1.14-0.14*min(on/7\\,1)+0.0016*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=${FPS}`;
     await ff(['-stream_loop', '-1', '-ss', String(beat.broll_start || 0.4), '-i', beat.broll_file, '-frames:v', String(n),
       '-vf', `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,${z},eq=saturation=0.86:contrast=1.06,colorbalance=bs=0.06:bm=0.03,setsar=1`,
       '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', out]);
-  } else {
+    return;
+  } catch (e) { console.warn('кадр пропущен, ставлю фон:', e.message.slice(0, 120)); }
+  {
     await ff(['-f', 'lavfi', '-i', `color=c=0x14171c:s=1080x1920:r=${FPS}`, '-frames:v', String(n), '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', out]);
   }
 }
@@ -38,15 +40,21 @@ async function film(spec, out, voiceDir) {
     if (voice.every(f => fs.existsSync(f))) DUR = voice.map(f => dur(f) + 0.22); else voice = [];
     const wj = path.join(voiceDir, 'words.json'); if (fs.existsSync(wj)) WORDS = JSON.parse(fs.readFileSync(wj));
   }
-  // 1) графический слой с прозрачностью
-  const b = await chromium.launch({ args: ['--disable-dev-shm-usage', '--disable-gpu', '--no-zygote'] });
-  const p = await b.newPage({ viewport: { width: 1080, height: 1920 } });
-  await p.addInitScript(([s, d, w]) => { window.SPEC = s; if (d) window.DUR = d; if (w) window.WORDS = w; }, [spec, DUR, WORDS]);
-  await p.goto('file://' + path.join(T, 'reel.html'));
-  await p.evaluate(() => document.fonts.ready);
+  // 1) графический слой с прозрачностью; браузер перезапускаем каждые CHUNK кадров, чтобы не копилась память
+  const CHUNK = 300;
+  const open = async () => {
+    const b = await chromium.launch({ args: ['--disable-dev-shm-usage', '--disable-gpu', '--no-zygote'] });
+    const p = await b.newPage({ viewport: { width: 1080, height: 1920 } });
+    await p.addInitScript(([s, d, w]) => { window.SPEC = s; if (d) window.DUR = d; if (w) window.WORDS = w; }, [spec, DUR, WORDS]);
+    await p.goto('file://' + path.join(T, 'reel.html'));
+    await p.evaluate(() => document.fonts.ready);
+    return { b, p };
+  };
+  let { b, p } = await open();
   const total = await p.evaluate(() => total()), starts = await p.evaluate(() => beatStarts()), D = await p.evaluate(() => DUR);
   const n = Math.round(total * FPS);
   for (let i = 0; i < n; i++) {
+    if (i && i % CHUNK === 0) { await b.close(); ({ b, p } = await open()); }
     await p.evaluate(t => render(t), i / FPS);
     await p.screenshot({ path: `${tmp}/f${String(i).padStart(5, '0')}.png`, omitBackground: true });
   }
