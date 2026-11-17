@@ -125,6 +125,16 @@ async function buttons() {
       await gift(q.message.chat.id, q.from.id); continue;
     }
     if (msg?.text && (/^\/start gift/.test(msg.text) || /чек.?лист/i.test(msg.text))) { await gift(msg.chat.id, msg.from.id); continue; }
+    const isOwner = msg && String(msg.chat.id) === String(OWNER);
+    // обычный /start от подписчика — приветствие и подарок; служебный chat_id видит только владелец (или пока он не задан)
+    if (msg?.text === '/start' && !isOwner && /^-?\d+$/.test(String(OWNER || ''))) {
+      await tg.call('sendMessage', { chat_id: msg.chat.id, text: 'Здравствуйте! Это бот CRYSTAL FINANCE — кредитного брокера с 8-летним опытом и 50+ банками-партнёрами.\n\nЗдесь можно забрать подарок — чек-лист «12 проверок перед заявкой на кредит».' });
+      await gift(msg.chat.id, msg.from.id); continue;
+    }
+    if (msg?.text && !isOwner && /разбор/i.test(msg.text)) {
+      await tg.call('sendMessage', { chat_id: msg.chat.id, text: 'Чтобы разобрать вашу ситуацию, напишите слово РАЗБОР нашему специалисту: @crystalfin54. Консультация бесплатная.' });
+      continue;
+    }
     if (q && String(q.from.id) === String(OWNER)) {
       const [act, id] = q.data.split(':');
       if (act === 'ok') { await notion.update(id, { status: 'Одобрено' }); await tg.call('answerCallbackQuery', { callback_query_id: q.id, text: 'Одобрено — опубликую по расписанию (Дзен — вручную)' }); }
