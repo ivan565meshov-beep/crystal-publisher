@@ -71,8 +71,10 @@ const build = (b, i) => {
   }
   return `<div class="beat" id="b${i}">${x}</div>`;
 };
+// хук: первый кадр всегда с ударом, тряской и вспышкой
+if (S.beats[0]) S.beats[0].fx = ((S.beats[0].fx || '') + ' punch shake flash').trim();
 document.getElementById('beats').innerHTML = S.beats.map(build).join('');
-const estT = b => Math.max(1.2, b.say.split(/\s+/).length / 3.2 + .25);
+const estT = b => Math.min(2.6, Math.max(1.2, b.say.split(/\s+/).length / 3.4 + .2));
 window.DUR = window.DUR || S.beats.map(estT);
 // тайминги слов в бите: из озвучки или пропорционально длине
 const W = S.beats.map((b, i) => {
@@ -106,7 +108,7 @@ window.render = t => {
   }
   // камера: медленный наезд + удар/вжух/тряска на смене кадра
   let sc = 1 + .05 * (lt / d), tx = 0, ty = 0, bl = 0, rot = 0;
-  if (fx.includes('punch')) sc += .16 * (1 - ease(lt / .28));
+  if (fx.includes('punch')) sc += (cur === 0 ? .3 : .16) * (1 - ease(lt / (cur === 0 ? .4 : .28)));
   if (fx.includes('whip')) { const q = ease(lt / .22); tx = (1 - q) * (cur % 2 ? -420 : 420); bl = (1 - q) * 18; }
   if (fx.includes('shake') && lt < .45) { const k = 1 - lt / .45; tx += (rnd(t * 60) - .5) * 40 * k; ty += (rnd(t * 60 + 7) - .5) * 40 * k; rot = (rnd(t * 60 + 3) - .5) * 2 * k; }
   const stg = document.getElementById('stage');

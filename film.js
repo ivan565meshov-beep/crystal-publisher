@@ -17,6 +17,17 @@ async function sfx(dir) {
   return { whoosh: w, hit: h };
 }
 
+// фоновый бит ~120 BPM: бочка, хэты и мягкий аккорд — синтезируем сами, без лицензий
+async function beat(dir, seconds) {
+  const out = path.join(dir, 'beat.wav'), d = (seconds + 0.5).toFixed(2);
+  const kick = `aevalsrc='0.8*sin(2*PI*(45+110*exp(-35*mod(t,0.5)))*t)*exp(-9*mod(t,0.5))':d=${d}`;
+  const pad = `aevalsrc='0.05*(sin(2*PI*220*t)+sin(2*PI*261.63*t)+sin(2*PI*329.63*t))*(0.7+0.3*sin(2*PI*0.25*t))':d=${d}`;
+  await ff(['-f', 'lavfi', '-i', kick, '-f', 'lavfi', '-i', `anoisesrc=d=${d}:c=white:a=0.5`, '-f', 'lavfi', '-i', pad,
+    '-filter_complex', `[1:a]highpass=f=7000,volume='0.35*exp(-60*mod(t+0.25,0.25))':eval=frame[h];[2:a]lowpass=f=1800[p];[0:a][h][p]amix=inputs=3:normalize=0,afade=t=in:d=0.3,afade=t=out:st=${(seconds - 0.8).toFixed(2)}:d=0.8,volume=0.5[o]`,
+    '-map', '[o]', '-ar', '44100', out]);
+  return out;
+}
+
 // фон бита: стоковое видео 9:16 с наездом камеры и фирменной цветокоррекцией, либо фирменный цвет
 async function baseSegment(beat, d, out) {
   const n = Math.ceil(d * FPS);
@@ -76,8 +87,14 @@ async function film(spec, out, voiceDir) {
     if (/whip/.test(f)) { ins.push('-i', fx.whoosh); parts.push({ i: ins.length / 2 - 1, ms: Math.max(0, ms - 120), vol: .45 }); }
     if (/punch|shake/.test(f)) { ins.push('-i', fx.hit); parts.push({ i: ins.length / 2 - 1, ms, vol: .6 }); }
   });
-  const a = parts.map((q, k) => `[${q.i + 2}:a]volume=${q.vol},adelay=${q.ms}|${q.ms}[a${k}]`).join(';') +
-    `;${parts.map((_, k) => `[a${k}]`).join('')}amix=inputs=${parts.length}:normalize=0,alimiter=limit=0.95[aout]`;
+  // музыка: громче без голоса, под голосом автоматически приглушается
+  const music = await beat(tmp, n / FPS);
+  ins.push('-i', music); const mi = ins.length / 2 - 1;
+  const mix = parts.map((q, k) => `[${q.i + 2}:a]volume=${q.vol},adelay=${q.ms}|${q.ms}[a${k}]`).join(';') +
+    `;${parts.map((_, k) => `[a${k}]`).join('')}amix=inputs=${parts.length}:normalize=0[fg]`;
+  const a = voice.length
+    ? `${mix};[fg]asplit=2[fg1][sc];[${mi + 2}:a]volume=0.55[mu];[mu][sc]sidechaincompress=threshold=0.02:ratio=10:attack=5:release=350[duck];[fg1][duck]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`
+    : `${mix};[${mi + 2}:a]volume=1.3[mu];[fg][mu]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`;
   await ff(['-i', path.join(tmp, 'base.mp4'), '-framerate', String(FPS), '-i', `${tmp}/f%05d.png`, ...ins,
     '-filter_complex', `[0:v][1:v]overlay=0:0:shortest=1[vout];${a}`, '-map', '[vout]', '-map', '[aout]',
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k',
