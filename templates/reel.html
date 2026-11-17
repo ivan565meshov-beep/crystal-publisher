@@ -64,7 +64,7 @@ const build = (b, i) => {
       x = `<div class="big up" style="font-size:96px;margin-bottom:40px">${esc(s.title)}</div>` + (s.items || []).map((it, k) => `<div class="item ${k === s.active ? 'act' : k < s.active ? '' : 'dim'}"><em>${k + 1}</em><div>${esc(it)}</div></div>`).join(''); break;
     case 'cta':
       x = `<div class="pop" style="align-self:center">${LOGO(240)}</div><div class="big up" style="font-size:84px;text-align:center;margin-top:30px">${esc(s.line1)}<br><span class="accent">${esc(s.accent)}</span></div>` +
-        (s.keyword ? `<div class="up" style="align-self:center;margin-top:44px;font-size:42px;color:#c7d1de">Напишите слово</div><div class="pop big" style="align-self:center;margin-top:14px;font-size:120px;padding:10px 46px;border-radius:30px;background:var(--blue);box-shadow:0 0 70px rgba(47,123,255,.7)">${esc(s.keyword)}</div>` : '') +
+        (s.keyword ? `<div class="up" style="align-self:center;margin-top:40px;font-size:54px;font-weight:800;color:#fff">${esc(s.sub || 'Подпишись')} 👆</div><div class="up" style="align-self:center;margin-top:22px;font-size:42px;color:#c7d1de">и напиши кодовое слово</div><div class="pop big" style="align-self:center;margin-top:14px;font-size:120px;padding:10px 46px;border-radius:30px;background:var(--blue);box-shadow:0 0 70px rgba(47,123,255,.7)">${esc(s.keyword)}</div>` : '') +
         `<div class="up big accent" style="align-self:center;margin-top:34px;font-size:76px">${esc(s.handle || S.handle || '@crystalfin54')}</div>`; break;
     default: // slam
       x = (s.badge ? `<div class="badge up">${esc(s.badge)}</div>` : '') + `<div class="big slam ${s.text && s.text.length > 22 ? 's2' : ''}" style="margin-top:${s.badge ? 40 : 0}px">${words(s.text || b.say, s.accent, s.tone)}</div>`;

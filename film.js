@@ -6,7 +6,7 @@ const { execFileSync, execFile } = require('child_process');
 const fs = require('fs'), path = require('path'), os = require('os');
 const T = path.join(__dirname, 'templates'), FPS = 30;
 // ffmpeg запускаем асинхронно, чтобы бот отвечал, пока идёт склейка видео
-const ff = a => new Promise((res, rej) => execFile('ffmpeg', ['-y', '-v', 'error', ...a], { maxBuffer: 1 << 26 }, (e, o, err) => e ? rej(new Error('ffmpeg: ' + (err || e.message).toString().slice(0, 300))) : res()));
+const ff = a => new Promise((res, rej) => (process.env.FFDEBUG && console.error('ffmpeg', a.join(' '))) || execFile('ffmpeg', ['-y', '-v', 'error', ...a], { maxBuffer: 1 << 26 }, (e, o, err) => e ? rej(new Error('ffmpeg: ' + (err || e.message).toString().slice(0, 300))) : res()));
 const dur = f => parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f]).toString());
 
 // звуковые акценты синтезируем сами — без чужой музыки и лицензий
