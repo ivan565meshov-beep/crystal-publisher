@@ -38,6 +38,7 @@ async function build(card) {
 
 // счётчик попыток: если карточка роняет сборку, после 3 попыток откладываем её с ошибкой
 const ATT = path.join(__dirname, 'data', 'attempts.json');
+const BUILDING = path.join(__dirname, 'data', 'building.json');
 const att = () => { try { return JSON.parse(fs.readFileSync(ATT)); } catch { return {}; } };
 const setAtt = o => { fs.mkdirSync(path.dirname(ATT), { recursive: true }); fs.writeFileSync(ATT, JSON.stringify(o)); };
 async function previews() {
@@ -49,13 +50,19 @@ async function previews() {
     const a = att(); a[c.id] = (a[c.id] || 0) + 1; setAtt(a);
     if (a[c.id] > 3) { await notion.update(c.id, { preview: true, error: 'Превью: сборка не удалась 3 раза — проверьте сценарий' }); continue; }
     try {
+      // отметка «собираю»: если процесс упадёт посреди сборки, после перезапуска это будет видно в карточке
+      fs.writeFileSync(BUILDING, JSON.stringify({ id: c.id, title: c.title, at: Date.now() }));
+      if (!fs.existsSync(path.join(WORK, c.id, 'media.json'))) await tg.send(OWNER, { text: `⏳ Собираю «${c.title}» — пришлю через несколько минут` }).catch(() => {});
       const m = await build(c);
+      fs.rmSync(BUILDING, { force: true });
       await tg.send(OWNER, { text: fixText(c.text), ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
         buttons: [[{ text: '✅ Одобрить', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
       await notion.update(c.id, { preview: true, error: '' }); log('превью', c.title);
       const a2 = att(); delete a2[c.id]; setAtt(a2);
     } catch (e) {
+      fs.rmSync(BUILDING, { force: true });
       log('ошибка превью', c.title, e.message);
+      await tg.send(OWNER, { text: `⚠️ «${c.title}» не собрался: ${e.message.slice(0, 300)}` }).catch(() => {});
       // голос ещё не добавлен в ElevenLabs — не тратим попытки, ждём и не перебираем остальные карточки
       if (/My Voices/.test(e.message)) { const a3 = att(); a3[c.id] = Math.max(0, (a3[c.id] || 1) - 1); setAtt(a3); await notion.update(c.id, { error: e.message }); return; }
       if (e.noSpec) await notion.update(c.id, { status: 'Переделать', edits: 'Нет JSON-сценария: сделай рилс/карусель по формату из инструкции SMM', error: '' });
@@ -193,6 +200,10 @@ setInterval(() => { if (busy) return; require('child_process').execFile('git', [
   if (!e && out && !/Already up to date|Уже актуально/i.test(out)) { log('обновление кода, перезапуск'); process.exit(0); }
 }); }, 10 * 60 * 1000);
 log('Публикатор запущен');
+// прошлый запуск упал посреди сборки — сообщаем, чтобы это не было «тишиной»
+try { const b = JSON.parse(fs.readFileSync(BUILDING)); fs.rmSync(BUILDING, { force: true });
+  notion.update(b.id, { error: 'Сборка прервалась (процесс перезапустился) — повторю' }).catch(() => {});
+  if (OWNER) tg.send(OWNER, { text: `⚠️ Сборка «${b.title}» прервалась, пробую снова` }).catch(() => {}); } catch {}
 // библиотеку кадров качаем сразу при запуске: ссылки на картинки действуют ограниченное время
 require('./lib/library').ensure().then(() => log('библиотека кадров готова')).catch(e => log('library', e.message));
 poll(); work();
