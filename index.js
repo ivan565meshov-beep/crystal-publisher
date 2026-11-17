@@ -52,6 +52,8 @@ async function previews() {
       const a2 = att(); delete a2[c.id]; setAtt(a2);
     } catch (e) {
       log('ошибка превью', c.title, e.message);
+      // голос ещё не добавлен в ElevenLabs — не тратим попытки, ждём и не перебираем остальные карточки
+      if (/My Voices/.test(e.message)) { const a3 = att(); a3[c.id] = Math.max(0, (a3[c.id] || 1) - 1); setAtt(a3); await notion.update(c.id, { error: e.message }); return; }
       if (e.noSpec) await notion.update(c.id, { status: 'Переделать', edits: 'Нет JSON-сценария: сделай рилс/карусель по формату из инструкции SMM', error: '' });
       else await notion.update(c.id, { error: 'Превью (попытка ' + (att()[c.id] || 1) + '): ' + e.message.slice(0, 300) });
     }
@@ -62,7 +64,10 @@ async function previews() {
 // не чаще одного поста в MIN_GAP_MIN минут (по умолчанию 120) — чтобы просроченные не вышли пачкой
 const LAST = path.join(__dirname, 'data', 'last_publish.txt');
 const gapOk = () => { try { return Date.now() - Number(fs.readFileSync(LAST, 'utf8')) > Number(process.env.MIN_GAP_MIN || 120) * 6e4; } catch { return true; } };
+// по умолчанию автопостинг выключен: владелец публикует сам. Включить: AUTO_PUBLISH=1 в .env
+const AUTO = process.env.AUTO_PUBLISH === '1';
 async function publish() {
+  if (!AUTO) return;
   const due = (await notion.query('Одобрено')).filter(c => !c.date || new Date(c.date) <= new Date())
     .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
   for (const c0 of due) {
@@ -137,7 +142,14 @@ async function buttons() {
     }
     if (q && String(q.from.id) === String(OWNER)) {
       const [act, id] = q.data.split(':');
-      if (act === 'ok') { await notion.update(id, { status: 'Одобрено' }); await tg.call('answerCallbackQuery', { callback_query_id: q.id, text: 'Одобрено — опубликую по расписанию (Дзен — вручную)' }); }
+      if (act === 'ok') {
+        await notion.update(id, { status: 'Одобрено' });
+        await tg.call('answerCallbackQuery', { callback_query_id: q.id, text: AUTO ? 'Одобрено — опубликую по расписанию' : 'Одобрено' });
+        if (!AUTO) await tg.call('sendMessage', { chat_id: OWNER, reply_to_message_id: q.message?.message_id,
+          text: '✅ Одобрено. Видео/слайды и текст — в сообщениях выше: сохраните и опубликуйте сами.\nПосле публикации нажмите кнопку — SMM не будет повторять тему.',
+          reply_markup: { inline_keyboard: [[{ text: '📤 Опубликовал', callback_data: `pub:${id}` }]] } });
+      }
+      if (act === 'pub') { await notion.update(id, { status: 'Опубликовано' }); await tg.call('answerCallbackQuery', { callback_query_id: q.id, text: 'Отметил как опубликованное' }); }
       if (act === 'no') { waitingEdits.set(String(OWNER), id); await tg.call('sendMessage', { chat_id: OWNER, text: 'Напишите одним сообщением, что поправить — передам SMM.' }); await tg.call('answerCallbackQuery', { callback_query_id: q.id }); }
     } else if (msg && String(msg.chat.id) === String(OWNER) && waitingEdits.has(String(OWNER)) && msg.text) {
       const id = waitingEdits.get(String(OWNER)); waitingEdits.delete(String(OWNER));
