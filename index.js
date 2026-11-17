@@ -66,6 +66,9 @@ async function publish() {
   const due = (await notion.query('Одобрено')).filter(c => !c.date || new Date(c.date) <= new Date())
     .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
   for (const c0 of due) {
+    // только Дзен (или нет автоплощадок) — публикуется вручную, автопостинг пропускает
+    const auto = c0.platforms.filter(x => ['Telegram', 'VK', 'Instagram'].includes(x));
+    if (!auto.length) continue;
     if (!gapOk()) return;
     const c = { ...c0, text: fixText(c0.text) };
     let m;
@@ -124,7 +127,7 @@ async function buttons() {
     if (msg?.text && (/^\/start gift/.test(msg.text) || /чек.?лист/i.test(msg.text))) { await gift(msg.chat.id, msg.from.id); continue; }
     if (q && String(q.from.id) === String(OWNER)) {
       const [act, id] = q.data.split(':');
-      if (act === 'ok') { await notion.update(id, { status: 'Одобрено' }); await tg.call('answerCallbackQuery', { callback_query_id: q.id, text: 'Одобрено — опубликую по расписанию' }); }
+      if (act === 'ok') { await notion.update(id, { status: 'Одобрено' }); await tg.call('answerCallbackQuery', { callback_query_id: q.id, text: 'Одобрено — опубликую по расписанию (Дзен — вручную)' }); }
       if (act === 'no') { waitingEdits.set(String(OWNER), id); await tg.call('sendMessage', { chat_id: OWNER, text: 'Напишите одним сообщением, что поправить — передам SMM.' }); await tg.call('answerCallbackQuery', { callback_query_id: q.id }); }
     } else if (msg && String(msg.chat.id) === String(OWNER) && waitingEdits.has(String(OWNER)) && msg.text) {
       const id = waitingEdits.get(String(OWNER)); waitingEdits.delete(String(OWNER));
