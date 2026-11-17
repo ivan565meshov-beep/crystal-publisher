@@ -212,9 +212,11 @@ if (process.env.PUBLIC_URL) {
 if (process.env.IG_TOKEN) setInterval(() => ig.refreshToken().then(() => log('токен Instagram продлён')).catch(e => log(e.message)), 7 * 864e5);
 
 // кнопки проверяем часто, сборку и публикацию — без наложения запусков (рендер идёт несколько минут)
-let busy = false;
+let busy = false, busySince = 0;
+// сторож: если сборка висит дольше 20 минут — перезапуск процесса (pm2 поднимет заново), чтобы сервер не «молчал»
+setInterval(() => { if (busy && Date.now() - busySince > 20 * 60e3) { log('сборка зависла, перезапуск'); process.exit(1); } }, 60e3);
 async function work() {
-  if (busy) return; busy = true;
+  if (busy) return; busy = true; busySince = Date.now();
   for (const f of [previews, publish]) { try { await f(); } catch (e) { log(f.name, e.message); } }
   busy = false;
 }
