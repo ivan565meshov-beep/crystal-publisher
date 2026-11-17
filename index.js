@@ -7,7 +7,7 @@ const notion = require('./lib/notion'), tg = require('./lib/tg'), vk = require('
 const { voiceover } = require('./lib/tts'), { fetchBroll } = require('./lib/stock');
 const { film } = require('./film'), { renderCarousel } = require('./render');
 const WORK = path.join(__dirname, 'data', 'work'), OWNER = process.env.TG_OWNER_CHAT_ID;
-const ENGINE = '2';
+const ENGINE = '3';
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
 // в старых карточках вместо имени бота стоит заглушка <бот>
@@ -46,7 +46,11 @@ const setAtt = o => { fs.mkdirSync(path.dirname(ATT), { recursive: true }); fs.w
 async function previews() {
   if (!/^-?\d+$/.test(String(OWNER || ''))) return; // сначала напишите боту /start и впишите chat_id в .env
   // мультсерии первыми: их клипы по ссылкам ElevenLabs живут несколько часов
-  const list = (await notion.query('На проверке')).sort((a, b) => /мультсери/i.test(b.title) - /мультсери/i.test(a.title));
+  // порядок: мультсерии первыми (ссылки на клипы живут недолго), дальше по дате публикации и номеру серии (#1, #2…),
+  // чтобы серии приходили и выходили по порядку, а не вперемешку
+  const num = t => +((t.match(/#\s*(\d+)/) || [])[1] || 0);
+  const list = (await notion.query('На проверке')).sort((a, b) =>
+    (/мультсери/i.test(b.title) - /мультсери/i.test(a.title)) || String(a.date || '9').localeCompare(String(b.date || '9')) || num(a.title) - num(b.title));
   for (const c of list) {
     if (c.preview) continue;
     const a = att(); a[c.id] = (a[c.id] || 0) + 1; setAtt(a);

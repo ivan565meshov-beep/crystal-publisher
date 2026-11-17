@@ -35,7 +35,7 @@ async function cartoon(spec, dir) {
       sub = `,drawtext=fontfile=${FONT}:textfile=${tf}:fontcolor=white:fontsize=40:line_spacing=8:borderw=3:bordercolor=black@0.85:box=1:boxcolor=black@0.35:boxborderw=14:x=(w-tw)/2:y=h-th-170`;
     }
     await ff(['-i', raw, '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1' + sub,
-      '-af', 'aresample=44100,aformat=channel_layouts=stereo', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', norm]);
+      '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100,aformat=channel_layouts=stereo', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', norm]);
     parts.push(norm);
   }
   // 2) финальная карточка с призывом — нашим движком рилсов, голосом диктора
@@ -44,7 +44,7 @@ async function cartoon(spec, dir) {
     const vd = await voiceover(c.beats, path.join(tmp, 'ctavoice'));
     const raw = path.join(tmp, 'cta_raw.mp4'), norm = path.join(tmp, 'cta.mp4');
     await film(c, raw, vd);
-    await ff(['-i', raw, '-vf', 'fps=30,setsar=1', '-af', 'aresample=44100,aformat=channel_layouts=stereo', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', norm]);
+    await ff(['-i', raw, '-vf', 'fps=30,setsar=1', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100,aformat=channel_layouts=stereo', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', norm]);
     parts.push(norm);
   }
   // 3) склейка
@@ -59,11 +59,13 @@ async function cartoon(spec, dir) {
     .flatMap(d => fs.existsSync(d) ? fs.readdirSync(d).filter(f => /\.(mp3|wav|m4a)$/i.test(f)).map(f => path.join(d, f)) : []);
   const music = tracks.find(t => /drama/i.test(t)) || tracks[0];
   const args = ['-i', joined];
-  let af = '[0:a]alimiter=limit=0.95[a]';
+  // реплики разных героев — разной громкости: выравниваем (speechnorm), музыка — ровная тихая подложка
+  const VN = 'anull'; // каждый клип уже выровнен loudnorm
+  let af = `[0:a]${VN},alimiter=limit=0.95[a]`;
   if (music) {
     args.push('-stream_loop', '-1', '-i', music);
-    af = `[0:a]asplit=2[v1][sc];[1:a]volume=${process.env.MUSIC_VOL || 0.12},afade=t=in:d=0.5,afade=t=out:st=${Math.max(0, total - 1.2).toFixed(2)}:d=1.2[mu];` +
-      `[mu][sc]sidechaincompress=threshold=0.015:ratio=12:attack=5:release=500[duck];[v1][duck]amix=inputs=2:normalize=0,alimiter=limit=0.95[a]`;
+    af = `[0:a]${VN}[v1];[1:a]volume=${process.env.MUSIC_VOL || 0.07},afade=t=in:d=0.5,afade=t=out:st=${Math.max(0, total - 1.2).toFixed(2)}:d=1.2[mu];` +
+      `[v1][mu]amix=inputs=2:normalize=0,alimiter=limit=0.95[a]`;
   }
   await ff([...args, '-filter_complex', `[0:v]${vf}[v];${af}`, '-map', '[v]', '-map', '[a]', '-t', total.toFixed(2),
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', out]);

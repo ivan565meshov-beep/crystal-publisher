@@ -94,7 +94,7 @@ async function film(spec, out, voiceDir) {
   const fx = await sfx(tmp), ins = [], parts = [];
   spec.beats.forEach((bt, i) => {
     const ms = Math.round(starts[i] * 1000), f = bt.fx || '';
-    if (voice.length) { ins.push('-i', voice[i]); parts.push({ i: ins.length / 2 - 1, ms, vol: 1 }); }
+    if (voice.length) { ins.push('-i', voice[i]); parts.push({ i: ins.length / 2 - 1, ms, vol: 1, voice: true }); }
     if (/whip/.test(f)) { ins.push('-i', fx.whoosh); parts.push({ i: ins.length / 2 - 1, ms: Math.max(0, ms - 120), vol: .45 }); }
     if (/punch|shake/.test(f)) { ins.push('-i', fx.hit); parts.push({ i: ins.length / 2 - 1, ms, vol: .6 }); }
   });
@@ -107,13 +107,17 @@ async function film(spec, out, voiceDir) {
     const t = tracks[Math.floor(Math.random() * tracks.length)];
     ins.push('-stream_loop', '-1', '-i', t); mi = (ins.filter(x => x === '-i').length) - 1;
   }
-  const mix = parts.map((q, k) => `[${q.i + 2}:a]volume=${q.vol},adelay=${q.ms}|${q.ms}[a${k}]`).join(';') +
+  const mix = parts.map((q, k) => `[${q.i + 2}:a]${q.voice ? 'loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100,' : ''}volume=${q.vol},adelay=${q.ms}|${q.ms}[a${k}]`).join(';') +
     `;${parts.map((_, k) => `[a${k}]`).join('')}amix=inputs=${parts.length}:normalize=0[fg]`;
   const fade = `afade=t=in:d=0.4,afade=t=out:st=${Math.max(0, n / FPS - 1).toFixed(2)}:d=1`;
+  // голос выравниваем по громкости (speechnorm — тихие реплики подтягиваются, без «просадок»),
+  // музыка — постоянно тихая подложка без «качелей» сайдчейна, в конце общий лимитер
+  const VN = 'anull'; // голос уже выровнен loudnorm по каждой реплике
+  const MV = process.env.MUSIC_VOL || 0.07;
   const a = mi < 0
-    ? `${mix};[fg]alimiter=limit=0.95[aout]`
+    ? `${mix};[fg]${voice.length ? VN + ',' : ''}alimiter=limit=0.95[aout]`
     : voice.length
-    ? `${mix};[fg]asplit=2[fg1][sc];[${mi + 2}:a]volume=${process.env.MUSIC_VOL || 0.12},${fade}[mu];[mu][sc]sidechaincompress=threshold=0.015:ratio=12:attack=5:release=500[duck];[fg1][duck]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`
+    ? `${mix};[fg]${VN}[fg1];[${mi + 2}:a]volume=${MV},${fade}[mu];[fg1][mu]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`
     : `${mix};[${mi + 2}:a]volume=0.35,${fade}[mu];[fg][mu]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`;
   // звук сводим отдельным шагом: при 20+ входах вместе с видео ffmpeg терял голос во второй половине ролика
   const wav = path.join(tmp, 'mix.wav');
