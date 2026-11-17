@@ -1,0 +1,128 @@
+{
+ "handle": "в директ",
+ "type": "reel",
+ "series": "Кредитная история",
+ "ep": 1,
+ "beats": [
+  {
+   "say": "Банк отказал из-за просрочки. Которой у вас никогда не было.",
+   "fx": "punch shake",
+   "broll": "shocked woman looking at laptop screen at home",
+   "show": {
+    "kind": "card",
+    "sub": "Кредитная история",
+    "status": "Просрочка",
+    "tone": "red",
+    "text": "Но я не брала!"
+   }
+  },
+  {
+   "say": "Так бывает чаще, чем кажется.",
+   "fx": "whip",
+   "broll": "confused woman reading documents at home",
+   "show": {
+    "kind": "slam",
+    "text": "Так бывает часто",
+    "accent": "часто"
+   }
+  },
+  {
+   "say": "Досмотрите — покажу, как это исправить.",
+   "fx": "whip",
+   "broll": "person scrolling phone close up",
+   "show": {
+    "kind": "slam",
+    "badge": "Досмотрите",
+    "text": "Как исправить",
+    "accent": "исправить"
+   }
+  },
+  {
+   "say": "Банк не передал, что вы закрыли кредит.",
+   "fx": "punch",
+   "broll": "frustrated woman talking on phone",
+   "show": {
+    "kind": "slam",
+    "text": "Закрыт, но висит",
+    "accent": "висит"
+   }
+  },
+  {
+   "say": "Или чужой долг привязали к вашему паспорту.",
+   "fx": "punch shake",
+   "broll": "shocked man reading paper document",
+   "show": {
+    "kind": "slam",
+    "text": "Чужой долг на вас",
+    "accent": "Чужой"
+   }
+  },
+  {
+   "say": "Шаг первый: запросите кредитную историю. Это бесплатно.",
+   "fx": "whip",
+   "show": {
+    "kind": "list",
+    "title": "Что делать",
+    "active": 0,
+    "items": [
+     "Запросить историю",
+     "Найти ошибку",
+     "Оспорить в бюро"
+    ]
+   }
+  },
+  {
+   "say": "Шаг второй: найдите, где именно ошибка.",
+   "fx": "whip",
+   "broll": "focused woman reading documents with pen",
+   "show": {
+    "kind": "slam",
+    "text": "Найти ошибку",
+    "accent": "ошибку"
+   }
+  },
+  {
+   "say": "Шаг третий: заявление в бюро кредитных историй.",
+   "fx": "whip",
+   "broll": "person signing document at desk close up",
+   "show": {
+    "kind": "slam",
+    "text": "Заявление в бюро",
+    "accent": "бюро"
+   }
+  },
+  {
+   "say": "Бюро обязано проверить и исправить ошибку.",
+   "fx": "punch flash",
+   "broll": "happy relieved woman smiling at laptop",
+   "show": {
+    "kind": "card",
+    "sub": "Кредитная история",
+    "status": "Исправлено",
+    "tone": "good",
+    "text": "Ошибки больше нет"
+   }
+  },
+  {
+   "say": "А дальше — новая заявка, уже с чистой историей.",
+   "fx": "whip",
+   "broll": "happy couple signing documents in bank office",
+   "show": {
+    "kind": "slam",
+    "text": "Чистая история",
+    "accent": "Чистая"
+   }
+  },
+  {
+   "say": "Напишите в директ слово «история» — проверим вашу бесплатно.",
+   "fx": "punch flash",
+   "show": {
+    "kind": "cta",
+    "line1": "Проверим вашу историю",
+    "accent": "бесплатно",
+    "keyword": "ИСТОРИЯ",
+    "handle": "в директ"
+   }
+  }
+ ]
+}

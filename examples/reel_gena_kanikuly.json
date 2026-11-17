@@ -1,0 +1,128 @@
+{
+ "handle": "в директ",
+ "type": "reel",
+ "series": "Истории Гены",
+ "ep": 1,
+ "beats": [
+  {
+   "say": "Гена — таксист. И однажды его машина встала на три месяца.",
+   "fx": "punch shake",
+   "broll": "frustrated man taxi driver standing near broken car",
+   "show": {
+    "kind": "slam",
+    "text": "Машина встала. Денег нет",
+    "accent": "Денег нет"
+   }
+  },
+  {
+   "say": "А платёж по кредиту — сорок тысяч каждый месяц.",
+   "fx": "whip",
+   "show": {
+    "kind": "number",
+    "label": "платёж в месяц",
+    "value": "40 000 ₽",
+    "tone": "red"
+   }
+  },
+  {
+   "say": "Досмотрите — покажу, как Гена выдохнул на целый год.",
+   "fx": "whip",
+   "broll": "tired man rubbing face sitting in car at night",
+   "show": {
+    "kind": "slam",
+    "badge": "Досмотрите",
+    "text": "Выдохнуть на год",
+    "accent": "на год"
+   }
+  },
+  {
+   "say": "Первая мысль — занять у друзей. Или взять микрозайм.",
+   "fx": "whip",
+   "broll": "worried man talking on phone on street",
+   "show": {
+    "kind": "slam",
+    "text": "Занять? Микрозайм?",
+    "accent": "Микрозайм"
+   }
+  },
+  {
+   "say": "Стоп. Это яма: долгов станет только больше.",
+   "fx": "punch shake",
+   "broll": "stressed man looking at bills at kitchen table",
+   "show": {
+    "kind": "card",
+    "sub": "Микрозайм · 30 000 ₽",
+    "status": "Опасно",
+    "tone": "red",
+    "text": "Долг только растёт"
+   }
+  },
+  {
+   "say": "Гена пришёл к нам. Собрали документы и пошли в банк.",
+   "fx": "whip",
+   "broll": "man shaking hands with consultant in office",
+   "show": {
+    "kind": "slam",
+    "text": "Пришёл в CRYSTAL FINANCE",
+    "accent": "CRYSTAL FINANCE"
+   }
+  },
+  {
+   "say": "Договорились: отсрочка платежей на двенадцать месяцев.",
+   "fx": "punch flash",
+   "broll": "happy relieved man smiling looking at phone",
+   "show": {
+    "kind": "card",
+    "sub": "Отсрочка по кредиту",
+    "status": "Одобрено",
+    "tone": "good",
+    "text": "12 месяцев"
+   }
+  },
+  {
+   "say": "Без просрочек. Кредитная история осталась чистой.",
+   "fx": "whip",
+   "broll": "smiling man driving car in city",
+   "show": {
+    "kind": "slam",
+    "text": "История — чистая",
+    "accent": "чистая"
+   }
+  },
+  {
+   "say": "Гена спокойно починил машину и вернулся на линию.",
+   "fx": "whip",
+   "broll": "happy taxi driver driving at night city lights",
+   "show": {
+    "kind": "slam",
+    "text": "Снова на линии",
+    "accent": "на линии"
+   }
+  },
+  {
+   "say": "Главное — прийти до первой просрочки, а не после.",
+   "fx": "punch",
+   "show": {
+    "kind": "list",
+    "title": "Что важно",
+    "active": 2,
+    "items": [
+     "Не брать микрозаймы",
+     "Не копить просрочки",
+     "Прийти до первой просрочки"
+    ]
+   }
+  },
+  {
+   "say": "Напишите в директ слово «каникулы» — разберём вашу ситуацию бесплатно.",
+   "fx": "punch flash",
+   "show": {
+    "kind": "cta",
+    "line1": "Тяжело платить кредит?",
+    "accent": "Поможем",
+    "keyword": "КАНИКУЛЫ",
+    "handle": "в директ"
+   }
+  }
+ ]
+}

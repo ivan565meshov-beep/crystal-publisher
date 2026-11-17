@@ -1,0 +1,116 @@
+{
+ "handle": "в директ",
+ "type": "reel",
+ "series": "Рефинансирование",
+ "ep": 1,
+ "beats": [
+  {
+   "say": "Три кредита, и до зарплаты вы снова на нуле?",
+   "fx": "punch shake",
+   "broll": "stressed young man looking into empty wallet",
+   "show": {
+    "kind": "slam",
+    "text": "До зарплаты — ноль",
+    "accent": "ноль"
+   }
+  },
+  {
+   "say": "Вы не плохо считаете. Просто платежи съедают зарплату.",
+   "fx": "whip",
+   "broll": "worried woman calculating bills in kitchen",
+   "show": {
+    "kind": "slam",
+    "text": "Платежи съедают всё",
+    "accent": "съедают"
+   }
+  },
+  {
+   "say": "Досмотрите — скажу, как платить меньше.",
+   "fx": "whip",
+   "broll": "man looking at phone thinking",
+   "show": {
+    "kind": "slam",
+    "badge": "Досмотрите",
+    "text": "Как платить меньше",
+    "accent": "меньше"
+   }
+  },
+  {
+   "say": "Три кредита — это три платежа и три ставки.",
+   "fx": "punch",
+   "broll": "pile of bills and credit cards on table",
+   "show": {
+    "kind": "slam",
+    "text": "3 кредита — 3 ставки",
+    "accent": "3 ставки"
+   }
+  },
+  {
+   "say": "Рефинансирование объединяет их в один кредит.",
+   "fx": "whip",
+   "broll": "relieved man smiling at laptop at home",
+   "show": {
+    "kind": "slam",
+    "text": "Один вместо трёх",
+    "accent": "Один"
+   }
+  },
+  {
+   "say": "Один платёж, срок длиннее — и платёж может стать меньше.",
+   "fx": "whip",
+   "show": {
+    "kind": "list",
+    "title": "Что меняется",
+    "active": 2,
+    "items": [
+     "Один платёж",
+     "Срок длиннее",
+     "Платёж меньше"
+    ]
+   }
+  },
+  {
+   "say": "Но банк смотрит на вашу нагрузку и историю.",
+   "fx": "punch",
+   "broll": "bank manager reviewing documents in office",
+   "show": {
+    "kind": "slam",
+    "text": "Банк проверит нагрузку",
+    "accent": "нагрузку"
+   }
+  },
+  {
+   "say": "Подадите в пять банков — получите пять отказов.",
+   "fx": "punch shake",
+   "broll": "frustrated woman looking at phone",
+   "show": {
+    "kind": "card",
+    "sub": "Рефинансирование",
+    "status": "Отказано",
+    "tone": "red",
+    "text": "5 заявок — 5 отказов"
+   }
+  },
+  {
+   "say": "Поэтому подаём в один банк — тот, что подходит именно вам.",
+   "fx": "whip",
+   "broll": "consultant explaining to smiling client in office",
+   "show": {
+    "kind": "slam",
+    "text": "Один банк — под вас",
+    "accent": "под вас"
+   }
+  },
+  {
+   "say": "Напишите в директ слово «платёж» — посчитаем, можно ли платить меньше.",
+   "fx": "punch flash",
+   "show": {
+    "kind": "cta",
+    "line1": "Посчитаем ваш платёж",
+    "accent": "бесплатно",
+    "keyword": "ПЛАТЁЖ",
+    "handle": "в директ"
+   }
+  }
+ ]
+}
