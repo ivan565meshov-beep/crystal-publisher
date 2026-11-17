@@ -26,6 +26,7 @@ async function build(card) {
 }
 
 async function previews() {
+  if (!OWNER) return; // сначала напишите боту /start и впишите chat_id в .env
   for (const c of await notion.query('На проверке')) {
     if (c.preview) continue;
     try {
