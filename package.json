@@ -3,7 +3,16 @@
   "version": "1.0.0",
   "description": "Автопубликация контента CRYSTAL FINANCE: рилсы и карусели из Notion в Telegram и VK",
   "main": "index.js",
-  "scripts": { "start": "node index.js", "test-reel": "node film.js examples/reel_otkaz_01.json test_reel.mp4", "test-carousel": "node render.js examples/carousel_5prichin.json test_slides" },
-  "dependencies": { "playwright": "1.48.2" },
-  "engines": { "node": ">=20" }
+  "scripts": {
+    "start": "node index.js",
+    "test-reel": "node film.js examples/reel_otkaz_01.json test_reel.mp4",
+    "test-carousel": "node render.js examples/carousel_5prichin.json test_slides",
+    "pdf": "node scripts/pdf.js"
+  },
+  "dependencies": {
+    "playwright": "1.48.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }
