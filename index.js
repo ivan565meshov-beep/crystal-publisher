@@ -9,6 +9,10 @@ const { film } = require('./film'), { renderCarousel } = require('./render');
 const WORK = path.join(__dirname, 'data', 'work'), OWNER = process.env.TG_OWNER_CHAT_ID;
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
+// в старых карточках вместо имени бота стоит заглушка <бот>
+const BOT = process.env.TG_BOT_USERNAME || 'croublisher_bot';
+const fixText = t => (t || '').replace(/\\*<бот>|%3C%D0%B1%D0%BE%D1%82%3E/gi, BOT);
+
 // собрать медиа по карточке (один раз, кладём в кэш)
 async function build(card) {
   const dir = path.join(WORK, card.id), done = path.join(dir, 'media.json');
@@ -42,7 +46,7 @@ async function previews() {
     if (a[c.id] > 3) { await notion.update(c.id, { preview: true, error: 'Превью: сборка не удалась 3 раза — проверьте сценарий' }); continue; }
     try {
       const m = await build(c);
-      await tg.send(OWNER, { text: c.text, ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
+      await tg.send(OWNER, { text: fixText(c.text), ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
         buttons: [[{ text: '✅ Одобрить', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
       await notion.update(c.id, { preview: true, error: '' }); log('превью', c.title);
       const a2 = att(); delete a2[c.id]; setAtt(a2);
@@ -54,9 +58,6 @@ async function previews() {
   }
 }
 
-// в старых карточках вместо имени бота стоит заглушка <бот>
-const BOT = process.env.TG_BOT_USERNAME || 'croublisher_bot';
-const fixText = t => (t || '').replace(/\\*<бот>|%3C%D0%B1%D0%BE%D1%82%3E/gi, BOT);
 
 // не чаще одного поста в MIN_GAP_MIN минут (по умолчанию 120) — чтобы просроченные не вышли пачкой
 const LAST = path.join(__dirname, 'data', 'last_publish.txt');
