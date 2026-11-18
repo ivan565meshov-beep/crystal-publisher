@@ -21,8 +21,9 @@ http.createServer((req, res) => {
     if (!key || req.headers['x-key'] !== key) return json(403, { ok: false });
     const since = new URL(req.url, 'http://x').searchParams.get('since') || '';
     const rows = fs.existsSync(FILE) ? fs.readFileSync(FILE, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(l => l.at > since) : [];
-    // наружу (за границу) уходят только время и тип услуги — без имени, телефона и комментария
-    return json(200, { ok: true, leads: rows.slice(0, 50).map(l => ({ at: l.at, service: l.service })) });
+    // PULL_FULL=0 в /etc/crystal-site.env — отдавать только факт заявки (без имени/телефона), иначе — полностью
+    const full = process.env.PULL_FULL !== '0';
+    return json(200, { ok: true, leads: rows.slice(0, 50).map(l => full ? l : ({ at: l.at, service: l.service })) });
   }
   // список заявок для владельца — доступ закрыт паролем на уровне nginx (auth_basic)
   if (req.method === 'GET' && req.url.startsWith('/admin/leads')) {
