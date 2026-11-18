@@ -230,6 +230,10 @@
   var consent = store('cf-cookie');
   if (consent === 'all') loadMetrika();
   if (ck && !consent) setTimeout(function () { ck.classList.add('show'); }, 1200);
+  // «Настройки cookie» в подвале: сбросить выбор и показать плашку снова
+  $$('[data-cookie-reset]').forEach(function (a) {
+    a.addEventListener('click', function (e) { e.preventDefault(); try { localStorage.removeItem('cf-cookie'); } catch (x) {} if (ck) ck.classList.add('show'); });
+  });
   $$('[data-cookie]').forEach(function (b) {
     b.addEventListener('click', function () {
       var v = b.getAttribute('data-cookie'); store('cf-cookie', v); ck.classList.remove('show');
