@@ -36,17 +36,25 @@ http.createServer((req, res) => {
 <style>body{font:15px -apple-system,sans-serif;margin:16px;background:#0b0e14;color:#e8eef6}table{border-collapse:collapse;width:100%}td,th{padding:8px;border-bottom:1px solid #223;text-align:left;vertical-align:top}a{color:#7cc4ff}</style>
 <h2>Заявки с сайта (${rows.length})</h2><table><tr><th>Когда</th><th>Имя</th><th>Телефон</th><th>Услуга</th><th>Комментарий</th></tr>${tr}</table>`);
   }
-  // статьи блога: публикатор собирает их из Notion и присылает готовые страницы (только по ключу)
+  // статьи блога: публикатор собирает их из Notion и присылает готовые страницы по одной (gzip, только по ключу).
+  // ?f=имя — положить файл во временную папку; ?commit=1 — заменить блог на новую версию целиком
   if (req.method === 'POST' && req.url.startsWith('/api/blog-sync')) {
     if (!process.env.PULL_KEY || req.headers['x-key'] !== process.env.PULL_KEY) return json(403, { ok: false });
-    let b = ''; req.on('data', c => { b += c; if (b.length > 8e6) req.destroy(); });
+    const q = new URL(req.url, 'http://x').searchParams, dir = path.join(__dirname, '..', 'site', 'blog'), tmp = dir + '.new';
+    const parts = []; let n = 0;
+    req.on('data', c => { n += c.length; if (n > 2e6) req.destroy(); else parts.push(c); });
     return req.on('end', () => {
       try {
-        const { files } = JSON.parse(b), dir = path.join(__dirname, '..', 'site', 'blog'), tmp = dir + '.new';
-        fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(tmp, { recursive: true });
-        for (const [n, c] of Object.entries(files || {})) if (/^[a-z0-9-]+\.(html|xml)$/.test(n)) fs.writeFileSync(path.join(tmp, n), String(c));
-        fs.rmSync(dir, { recursive: true, force: true }); fs.renameSync(tmp, dir);
-        json(200, { ok: true, count: Object.keys(files || {}).length });
+        if (q.get('start')) { fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(tmp, { recursive: true }); return json(200, { ok: true }); }
+        if (q.get('commit')) {
+          if (!fs.existsSync(path.join(tmp, 'index.html'))) return json(400, { ok: false, error: 'нет index.html' });
+          fs.rmSync(dir, { recursive: true, force: true }); fs.renameSync(tmp, dir); return json(200, { ok: true });
+        }
+        const f = q.get('f') || '';
+        if (!/^[a-z0-9-]+\.(html|xml)$/.test(f)) return json(400, { ok: false, error: 'имя файла' });
+        fs.mkdirSync(tmp, { recursive: true });
+        fs.writeFileSync(path.join(tmp, f), require('zlib').gunzipSync(Buffer.concat(parts)));
+        json(200, { ok: true });
       } catch (e) { json(400, { ok: false, error: e.message }); }
     });
   }
