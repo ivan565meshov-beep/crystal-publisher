@@ -4,7 +4,7 @@
 #   bash <(curl -sL https://raw.githubusercontent.com/ivan565meshov-beep/crystal-publisher/main/scripts/operator.sh)
 read -rp "ФИО полностью (например: Иванов Иван Иванович): " FIO </dev/tty
 read -rp "ИНН (12 цифр): " INN </dev/tty
-FIO=$(printf '%s' "$FIO" | tr -cd 'А-Яа-яЁёA-Za-z .-' | sed 's/  */ /g;s/^ //;s/ $//')
+FIO=$(printf '%s' "$FIO" | sed "s/[';\\\\{}\$\"<>]//g; s/  */ /g; s/^ //; s/ $//")
 INN=$(printf '%s' "$INN" | tr -cd '0-9')
 [ ${#INN} -eq 12 ] || { echo "❌ ИНН самозанятого — 12 цифр, а введено ${#INN}. Запустите команду снова"; exit 1; }
 [ -n "$FIO" ] || { echo "❌ ФИО пустое"; exit 1; }
