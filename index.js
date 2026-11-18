@@ -223,8 +223,14 @@ async function work() {
 let polling = false;
 async function poll() { if (polling) return; polling = true; try { await buttons(); } catch (e) { log('buttons', e.message); } polling = false; }
 // автообновление: раз в 10 минут подтягиваем код с GitHub; если он изменился — перезапуск (pm2 поднимет снова)
-setInterval(() => { if (busy) return; require('child_process').execFile('git', ['pull', '--ff-only'], { cwd: __dirname }, (e, out) => {
-  if (!e && out && !/Already up to date|Уже актуально/i.test(out)) { log('обновление кода, перезапуск'); process.exit(0); }
+// fetch + reset: обновление не ломается из-за локальных правок на сервере
+const { execFile: ex } = require('child_process');
+setInterval(() => { if (busy) return; ex('git', ['fetch', '-q', 'origin', 'main'], { cwd: __dirname }, e => {
+  if (e) return log('автообновление: ' + e.message.slice(0, 200));
+  ex('git', ['rev-parse', 'HEAD', 'origin/main'], { cwd: __dirname }, (e2, out) => {
+    const [a, b] = (out || '').trim().split('\n'); if (e2 || !b || a === b) return;
+    ex('git', ['reset', '-q', '--hard', 'origin/main'], { cwd: __dirname }, e3 => { if (!e3) { log('обновление кода, перезапуск'); process.exit(0); } });
+  });
 }); }, 10 * 60 * 1000);
 log('Публикатор запущен');
 // прошлый запуск упал посреди сборки — сообщаем, чтобы это не было «тишиной»
