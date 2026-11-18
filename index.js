@@ -85,7 +85,7 @@ async function previews() {
         const posts = (c.text || '').split(/\n\s*-{3,}\s*\n/).map(t => t.trim()).filter(Boolean);
         for (let k = 0; k < posts.length; k++) await tg.send(OWNER, { text: `${k + 1}/${posts.length}\n\n${posts[k]}` });
       }
-      await tg.send(OWNER, { text: c.format === 'Тредс' ? '' : c.format === 'Reels' ? instaText(c.text, await notion.spec(c.id)) : fixText(c.text), ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
+      await tg.send(OWNER, { text: c.format === 'Тредс' ? '' : c.format === 'Статья' && c.platforms.includes('Сайт') ? `📰 Статья для блога на сайте\n\n${c.text || ''}\n\nПолный текст — по ссылке на Notion ниже. После «Одобрить» статья появится на crystalfinance.ru/blog в течение 10 минут.` : c.format === 'Reels' ? instaText(c.text, await notion.spec(c.id)) : fixText(c.text), ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
         buttons: [[{ text: '✅ Одобрить', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
       await notion.update(c.id, { preview: true, error: '' }); log('превью', c.title);
       const a2 = att(); delete a2[c.id]; setAtt(a2);
