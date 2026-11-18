@@ -244,5 +244,7 @@ try { const b = JSON.parse(fs.readFileSync(BUILDING)); fs.rmSync(BUILDING, { for
   if (OWNER) tg.send(OWNER, { text: `⚠️ Сборка «${b.title}» прервалась, пробую снова` }).catch(() => {}); } catch {}
 // библиотеку кадров качаем сразу при запуске: ссылки на картинки действуют ограниченное время
 require('./lib/library').ensure().then(() => log('библиотека кадров готова')).catch(e => log('library', e.message));
+// заявки с сайта — раз в 30 секунд
+setInterval(() => require('./lib/siteleads').pull(log).catch(e => log('заявки с сайта:', e.message)), 30000);
 poll(); work();
 setInterval(poll, 3000); setInterval(work, 60 * 1000);

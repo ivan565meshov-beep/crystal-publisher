@@ -24,6 +24,15 @@ async function notify(lead) {
 
 http.createServer((req, res) => {
   const json = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(o)); };
+  // выдача заявок публикатору (он в Амстердаме и умеет слать в Telegram — из России Telegram API недоступен).
+  // Только по секретному ключу и только по HTTPS (nginx); первично заявки хранятся здесь, в России.
+  if (req.method === 'GET' && req.url.startsWith('/api/pull')) {
+    const key = process.env.PULL_KEY;
+    if (!key || req.headers['x-key'] !== key) return json(403, { ok: false });
+    const since = new URL(req.url, 'http://x').searchParams.get('since') || '';
+    const rows = fs.existsSync(FILE) ? fs.readFileSync(FILE, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(l => l.at > since) : [];
+    return json(200, { ok: true, leads: rows.slice(0, 50) });
+  }
   if (req.method !== 'POST' || !req.url.startsWith('/api/lead')) return json(404, { ok: false });
   let body = '';
   req.on('data', c => { body += c; if (body.length > 20000) req.destroy(); });
