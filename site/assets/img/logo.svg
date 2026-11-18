@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="cf-ring" x1="8" y1="56" x2="56" y2="8" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1f5fff"/>
+      <stop offset=".6" stop-color="#4fb4ff"/>
+      <stop offset="1" stop-color="#c9f1ff"/>
+    </linearGradient>
+    <linearGradient id="cf-l" x1="0" y1="64" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2a6cff"/>
+      <stop offset="1" stop-color="#bfeeff"/>
+    </linearGradient>
+    <linearGradient id="cf-r" x1="0" y1="64" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f3cc4"/>
+      <stop offset="1" stop-color="#5cc2ff"/>
+    </linearGradient>
+    <filter id="cf-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#cf-glow)">
+    <path d="M44.5 8.2A27 27 0 1 0 58.6 26" stroke="url(#cf-ring)" stroke-width="3" stroke-linecap="round"/>
+    <path d="M16 46l5 2V33l-5-1.8z" fill="url(#cf-l)"/>
+    <path d="M21 48l5-2V31.2L21 33z" fill="url(#cf-r)"/>
+    <path d="M16 31.2l5-6 5 6-5 1.8z" fill="#d8f6ff"/>
+    <path d="M27.5 46l5 2V23l-5-1.8z" fill="url(#cf-l)"/>
+    <path d="M32.5 48l5-2V21.2l-5 1.8z" fill="url(#cf-r)"/>
+    <path d="M27.5 21.2l5-7 5 7-5 1.8z" fill="#e6faff"/>
+    <path d="M39 46l5 2V13l-5-1.8z" fill="url(#cf-l)"/>
+    <path d="M44 48l5-2V11.2L44 13z" fill="url(#cf-r)"/>
+    <path d="M39 11.2l5-8 5 8-5 1.8z" fill="#f2fcff"/>
+  </g>
+</svg>
