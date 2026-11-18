@@ -5,3 +5,4 @@ Allow: /
 
 Host: https://crystalfinance.ru
 Sitemap: https://crystalfinance.ru/sitemap.xml
+Sitemap: https://crystalfinance.ru/blog/sitemap.xml
