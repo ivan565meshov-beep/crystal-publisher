@@ -249,5 +249,8 @@ const blogSync = () => require('./lib/blog').sync(log).catch(e => log('блог:
 setTimeout(blogSync, 60e3); setInterval(blogSync, 10 * 60e3);
 // заявки с сайта — раз в 30 секунд
 setInterval(() => require('./lib/siteleads').pull(log).catch(e => log('заявки с сайта:', e.message)), 30000);
+// находки агентов «Охотник» и «Партнёры» → бот заявок; кнопки «Взял в работу / Не подходит»
+setInterval(() => require('./lib/finds').send(log).catch(e => log('находки:', e.message)), 120000);
+setInterval(() => require('./lib/finds').buttons().catch(e => log('кнопки находок:', e.message)), 5000);
 poll(); work();
 setInterval(poll, 3000); setInterval(work, 60 * 1000);
