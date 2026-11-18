@@ -1,8 +1,9 @@
 #!/bin/bash
 # На сервере сайта (Россия): создаёт секретный ключ, по которому публикатор забирает заявки, и пробует включить HTTPS.
-#   bash <(curl -sL https://raw.githubusercontent.com/ivan565meshov-beep/crystal-publisher/main/scripts/site-key.sh)
+#   bash <(curl -sL https://raw.githubusercontent.com/ivan565meshov-beep/crystal-publisher/main/scripts/site-key.sh) [new]
 DOMAIN=crystalfinance.ru
 cd /opt/crystal && git fetch -q origin main && git reset -q --hard origin/main
+[ "$1" = "new" ] && sed -i '/^PULL_KEY=/d' /etc/crystal-site.env   # «new» — выдать новый ключ (старый перестанет работать)
 K=$(grep -s '^PULL_KEY=' /etc/crystal-site.env | cut -d= -f2)
 if [ -z "$K" ]; then K=$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32); echo "PULL_KEY=$K" >> /etc/crystal-site.env; fi
 systemctl restart crystal-site

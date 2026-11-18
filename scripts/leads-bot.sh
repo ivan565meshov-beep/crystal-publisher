@@ -8,6 +8,7 @@ cd "$D" && git fetch -q origin main && git reset -q --hard origin/main
 curl -sm 15 -o /dev/null https://api.telegram.org || { echo "❌ Нет связи с Telegram"; exit 1; }
 read -rsp "1) Вставьте НОВЫЙ токен бота от BotFather (символов не видно) и нажмите Enter: " T </dev/tty; echo
 T=$(printf '%s' "$T" | tr -cd '0-9A-Za-z:_-')
+case "$T" in *:*) ;; *) echo "❌ Это не токен бота (в токене есть двоеточие, вида 123456:ABC…). Скопируйте токен из сообщения BotFather и запустите команду снова"; exit 1;; esac
 NAME=$(curl -sm 15 "https://api.telegram.org/bot$T/getMe" | grep -o '"username":"[^"]*' | cut -d'"' -f4)
 [ -z "$NAME" ] && { echo "❌ Токен не подошёл"; exit 1; }
 echo "✅ Бот найден: @$NAME — откройте его в Telegram и нажмите «Старт»…"
