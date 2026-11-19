@@ -6,6 +6,9 @@
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var $ = function (s, c) { return (c || document).querySelector(s); };
   var $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
+  var fine = window.matchMedia('(pointer: fine)').matches;
+  // на телефонах тяжёлые эффекты выключены, обработчики прокрутки — не чаще одного раза за кадр
+  var raf = function (fn) { var t = false; return function () { if (t) return; t = true; requestAnimationFrame(function () { t = false; fn(); }); }; };
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
   var nf = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
   function rub(n) { return nf.format(Math.round(n)) + ' ₽'; }
@@ -134,7 +137,7 @@
       var k = Math.round(p * words.length);
       words.forEach(function (w, i) { w.classList.toggle('on', i < k || reduce); });
     };
-    window.addEventListener('scroll', upd, { passive: true }); upd();
+    window.addEventListener('scroll', raf(upd), { passive: true }); upd();
   });
 
   /* ---------- Story steps (sticky ring) ---------- */
@@ -154,11 +157,11 @@
       steps.forEach(function (s, j) { var r = s.getBoundingClientRect(); var d = Math.abs(r.top + r.height / 2 - innerHeight * 0.55); if (d < bd) { bd = d; best = j; } });
       set(best);
     };
-    window.addEventListener('scroll', upd, { passive: true }); upd();
+    window.addEventListener('scroll', raf(upd), { passive: true }); upd();
   });
 
   /* ---------- Spotlight + tilt + magnetic ---------- */
-  var fine = window.matchMedia('(pointer: fine)').matches;
+
   $$('.spot').forEach(function (el) {
     el.addEventListener('pointermove', function (e) {
       var r = el.getBoundingClientRect();
@@ -374,8 +377,10 @@
       ctx.strokeStyle = acc; ctx.lineWidth = 3 * d; ctx.globalAlpha = .55;
       ctx.beginPath(); ctx.moveTo(0, h * .72); ctx.bezierCurveTo(w * .3, h * .6, w * .45, h * .62, w * .5, h * .5); ctx.bezierCurveTo(w * .6, h * .35, w * .8, h * .3, w, h * .22); ctx.stroke();
       ctx.globalAlpha = 1;
-      if (!reduce) requestAnimationFrame(draw);
+      if (!reduce && fine && mcVis) requestAnimationFrame(draw);
     };
+    var mcVis = false;
+    if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { var v = es[0].isIntersecting; if (v && !mcVis) { mcVis = true; requestAnimationFrame(draw); } mcVis = v; }).observe(mc);
     requestAnimationFrame(draw);
   }
 
@@ -388,17 +393,19 @@
   if (heroImg && !reduce) {
     var mx = 0, my = 0, tx = 0, ty = 0;
     if (fine) window.addEventListener('pointermove', function (e) { tx = (e.clientX / innerWidth - .5) * -22; ty = (e.clientY / innerHeight - .5) * -14; }, { passive: true });
-    (function loopH() {
+    var heroUpd = function () {
       mx += (tx - mx) * .06; my += (ty - my) * .06;
       var r = heroEl.getBoundingClientRect(), sp = Math.min(1, Math.max(0, -r.top / Math.max(1, r.height)));
-      heroImg.style.setProperty('--px', mx.toFixed(2) + 'px'); heroImg.style.setProperty('--py', my.toFixed(2) + 'px'); heroImg.style.setProperty('--sp', sp.toFixed(3));
-      if (r.bottom > 0) requestAnimationFrame(loopH); else setTimeout(function () { requestAnimationFrame(loopH); }, 250);
-    })();
+      if (r.bottom > 0) { heroImg.style.setProperty('--px', mx.toFixed(2) + 'px'); heroImg.style.setProperty('--py', my.toFixed(2) + 'px'); heroImg.style.setProperty('--sp', sp.toFixed(3)); }
+      return r.bottom > 0;
+    };
+    if (fine) (function loopH() { if (heroUpd()) requestAnimationFrame(loopH); else setTimeout(function () { requestAnimationFrame(loopH); }, 250); })();
+    else { window.addEventListener('scroll', raf(heroUpd), { passive: true }); heroUpd(); }
   }
   var px = $$('.parallax img');
-  if (px.length && !reduce) {
+  if (px.length && !reduce && fine) {
     var upd = function () { px.forEach(function (im) { var r = im.parentElement.getBoundingClientRect(); var c = (r.top + r.height / 2 - innerHeight / 2) / innerHeight; im.style.setProperty('--ty', (c * -40).toFixed(1) + 'px'); }); };
-    window.addEventListener('scroll', upd, { passive: true }); upd();
+    window.addEventListener('scroll', raf(upd), { passive: true }); upd();
   }
 
   root.classList.add('ready');

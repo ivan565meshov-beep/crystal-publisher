@@ -675,3 +675,17 @@ a:hover .zoom img,.card:hover .zoom img{transform:scale(1.1);filter:brightness(1
   .ch .ch-photo img{object-position:60% 40%}
 }
 @media (prefers-reduced-motion:reduce){.chapters{height:auto}.ch-stage{position:relative;height:auto}.ch{position:relative;height:90vh;clip-path:none!important}}
+
+/* ---------- Телефоны и планшеты: плавность важнее эффектов ---------- */
+@media (max-width:900px),(pointer:coarse){
+  .grain{display:none}
+  .ambient::before{filter:none;animation:none;inset:0}
+  .js .rv{filter:none;transition:opacity .7s var(--ease-out),transform .8s var(--ease-out);transition-delay:calc(var(--d,0)*60ms)}
+  .phero .orb{animation:none;filter:blur(40px);opacity:.6}
+  .hero-sheen{display:none}
+  .hero-photo img{animation:heroInM 1s var(--ease-out) both;will-change:auto}
+  .phero-mark img{animation:none;filter:none}
+  .hdr.scrolled,.subnav,.mbar{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--bg)}
+  .hero-badge,.story-chip{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+@keyframes heroInM{from{opacity:0}to{opacity:1}}
