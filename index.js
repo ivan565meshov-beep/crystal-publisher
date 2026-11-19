@@ -62,8 +62,14 @@ const ATT = path.join(__dirname, 'data', 'attempts.json');
 const BUILDING = path.join(__dirname, 'data', 'building.json');
 const att = () => { try { return JSON.parse(fs.readFileSync(ATT)); } catch { return {}; } };
 const setAtt = o => { fs.mkdirSync(path.dirname(ATT), { recursive: true }); fs.writeFileSync(ATT, JSON.stringify(o)); };
+// одна единица контента в день: в 10:00 по Новокузнецку присылаем владельцу одно готовое сообщение
+const DAYF = path.join(__dirname, 'data', 'daily_preview_day.txt');
+const nkz = () => new Date(Date.now() + 7 * 3600e3);   // время Новокузнецка (UTC+7)
 async function previews() {
   if (!/^-?\d+$/.test(String(OWNER || ''))) return; // сначала напишите боту /start и впишите chat_id в .env
+  const now = nkz(), today = now.toISOString().slice(0, 10);
+  if (now.getUTCHours() < Number(process.env.DAILY_HOUR || 10)) return;
+  try { if (fs.readFileSync(DAYF, 'utf8').trim() === today) return; } catch {}
   // мультсерии первыми: их клипы по ссылкам ElevenLabs живут несколько часов
   // порядок: мультсерии первыми (ссылки на клипы живут недолго), дальше по дате публикации и номеру серии (#1, #2…),
   // чтобы серии приходили и выходили по порядку, а не вперемешку
@@ -77,7 +83,6 @@ async function previews() {
     try {
       // отметка «собираю»: если процесс упадёт посреди сборки, после перезапуска это будет видно в карточке
       fs.writeFileSync(BUILDING, JSON.stringify({ id: c.id, title: c.title, at: Date.now() }));
-      await tg.send(OWNER, { text: `⏳ Собираю «${c.title}» — пришлю через несколько минут` }).catch(() => {});
       const m = await build(c);
       fs.rmSync(BUILDING, { force: true });
       // Тредс: каждый пост ветки — отдельным сообщением, чтобы удобно копировать по одному
@@ -85,14 +90,15 @@ async function previews() {
         const posts = (c.text || '').split(/\n\s*-{3,}\s*\n/).map(t => t.trim()).filter(Boolean);
         for (let k = 0; k < posts.length; k++) await tg.send(OWNER, { text: `${k + 1}/${posts.length}\n\n${posts[k]}` });
       }
-      await tg.send(OWNER, { text: c.format === 'Тредс' ? '' : c.format === 'Статья' && c.platforms.includes('Сайт') ? `📰 Статья для блога на сайте\n\n${c.text || ''}\n\nПолный текст — по ссылке на Notion ниже. После «Одобрить» статья появится на crystalfinance.ru/blog в течение 10 минут.` : c.format === 'Reels' ? instaText(c.text, await notion.spec(c.id)) : fixText(c.text), ...m, keyboard: { text: `📝 «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
-        buttons: [[{ text: '✅ Одобрить', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
+      await tg.send(OWNER, { text: c.format === 'Тредс' ? '' : c.format === 'Статья' && c.platforms.includes('Сайт') ? `📰 Статья для блога на сайте\n\n${c.text || ''}\n\nПолный текст — по ссылке на Notion ниже. После «Одобрить» статья появится на crystalfinance.ru/blog в течение 10 минут.` : c.format === 'Reels' ? instaText(c.text, await notion.spec(c.id)) : fixText(c.text), ...m, keyboard: { text: `📅 Контент на сегодня: «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
+        buttons: [[{ text: '✅ Выложил', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
       await notion.update(c.id, { preview: true, error: '' }); log('превью', c.title);
       const a2 = att(); delete a2[c.id]; setAtt(a2);
+      fs.mkdirSync(path.dirname(DAYF), { recursive: true }); fs.writeFileSync(DAYF, today);
+      return; // на сегодня всё — следующая единица завтра
     } catch (e) {
       fs.rmSync(BUILDING, { force: true });
       log('ошибка превью', c.title, e.message);
-      await tg.send(OWNER, { text: `⚠️ «${c.title}» не собрался: ${e.message.slice(0, 300)}` }).catch(() => {});
       // голос ещё не добавлен в ElevenLabs — не тратим попытки, ждём и не перебираем остальные карточки
       if (/My Voices/.test(e.message)) { const a3 = att(); a3[c.id] = Math.max(0, (a3[c.id] || 1) - 1); setAtt(a3); await notion.update(c.id, { error: e.message }); return; }
       if (e.noSpec) await notion.update(c.id, { status: 'Переделать', edits: 'Нет JSON-сценария: сделай рилс/карусель по формату из инструкции SMM', error: '' });
