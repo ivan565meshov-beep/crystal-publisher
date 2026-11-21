@@ -22,7 +22,7 @@ const secLog = o => { try { if (fs.existsSync(SEC) && fs.statSync(SEC).size > 2e
   fs.appendFileSync(SEC, JSON.stringify({ at: new Date().toISOString(), ...o }) + '\n'); } catch {} };
 
 // автозащита сервера: один раз на версию скрипта (программа работает от root, поэтому может настроить nginx и fail2ban)
-const HARDEN_V = '1', HDONE = path.join(DATA, 'harden-v' + HARDEN_V + '.done');
+const HARDEN_V = '2', HDONE = path.join(DATA, 'harden-v' + HARDEN_V + '.done');
 function probeIps() {   // IP тех, кто отправлял проверочные заявки «PoC/probe/test»: ищем в журнале nginx по времени
   const probes = (fs.existsSync(FILE) ? fs.readFileSync(FILE, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : [])
     .filter(l => /\b(poc|probe|test)\b/i.test((l.name || '') + ' ' + (l.comment || '')) || /['"<>]/.test((l.name || '') + (l.phone || '')));
@@ -39,18 +39,31 @@ function probeIps() {   // IP тех, кто отправлял провероч
   return hits;
 }
 function harden() {
-  if (fs.existsSync(HDONE) || process.getuid?.() !== 0) return;
-  fs.writeFileSync(HDONE, new Date().toISOString());          // сразу, чтобы не запускать повторно при перезапусках
+  if (process.getuid?.() !== 0) return;
+  const RES = path.join(DATA, 'harden-result.txt'), PROBES = path.join(DATA, 'harden-probes.json');
+  // готовый результат (скрипт работает отдельно и может закончить между перезапусками) — отправляем владельцу один раз
+  if (fs.existsSync(RES)) {
+    const out = fs.readFileSync(RES, 'utf8');
+    const stale = Date.now() - fs.statSync(RES).mtimeMs > 60 * 60e3;   // скрипт оборвался (например, перезагрузка)
+    if (/^DONE/m.test(out) || stale) {
+      let probes = []; try { probes = JSON.parse(fs.readFileSync(PROBES, 'utf8')); } catch {}
+      secLog({ type: 'report', ok: (out.match(/^OK: (.*)$/m) || [])[1] || '', bad: (out.match(/^FAIL: (.*)$/m) || [])[1] || (/^DONE/m.test(out) ? '' : 'скрипт защиты не завершился'), probes });
+      fs.renameSync(RES, RES + '.reported'); fs.writeFileSync(HDONE, new Date().toISOString());
+    }
+    return;
+  }
+  if (fs.existsSync(HDONE)) return;
   let ips = new Map(); try { ips = probeIps(); } catch {}
-  const own = ['127.0.0.1', '::1'];
-  const deny = [...ips.keys()].filter(ip => !own.includes(ip) && /^[0-9a-f.:]+$/i.test(ip));
+  const deny = [...ips.keys()].filter(ip => !['127.0.0.1', '::1'].includes(ip) && /^[0-9a-f.:]+$/i.test(ip));
   try { fs.writeFileSync('/etc/nginx/snippets/crystal-deny.conf', deny.map(ip => `deny ${ip};`).join('\n') + '\n'); } catch {}
-  require('child_process').execFile('bash', [path.join(__dirname, '..', 'scripts', 'harden-auto.sh')], { timeout: 25 * 60e3 }, (err, out) => {
-    const ok = (String(out).match(/^OK: (.*)$/m) || [])[1] || '', bad = (String(out).match(/^FAIL: (.*)$/m) || [])[1] || '';
-    secLog({ type: 'report', ok, bad: bad || (err ? 'скрипт: ' + err.message.slice(0, 100) : ''),
-      probes: deny.map(ip => ({ ip, ua: (ips.get(ip) || '').slice(0, 120) })) });
-  });
+  fs.writeFileSync(PROBES, JSON.stringify(deny.map(ip => ({ ip, ua: (ips.get(ip) || '').slice(0, 120) }))));
+  fs.writeFileSync(RES, 'STARTED ' + new Date().toISOString() + '\n');
+  // отдельной службой systemd: перезапуск программы заявок (каждые 10 минут) её не прервёт
+  require('child_process').execFile('systemd-run', ['--unit=crystal-harden-' + Date.now(), '--collect', '--property=TimeoutStopSec=30',
+    'bash', '-c', `bash ${path.join(__dirname, '..', 'scripts', 'harden-auto.sh')} >> ${RES} 2>&1; echo DONE >> ${RES}`], () => {});
 }
+// проверяем каждые 2 минуты: запустить автозащиту или отправить её итог
+setInterval(harden, 120e3);
 setTimeout(harden, 5000);
 
 http.createServer((req, res) => {

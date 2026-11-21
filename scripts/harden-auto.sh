@@ -3,6 +3,9 @@
 # работающей от root. Каждый шаг безопасный: nginx проверяется перед применением и откатывается при ошибке.
 # Вход по SSH здесь НЕ меняется, чтобы не закрыть владельцу доступ.
 export DEBIAN_FRONTEND=noninteractive
+# если прошлый запуск оборвался посреди установки — доделать
+timeout 300 dpkg --configure -a >/dev/null 2>&1
+for i in $(seq 1 30); do fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || break; sleep 10; done
 F=/etc/nginx/sites-available/crystal
 S=/etc/nginx/snippets
 mkdir -p $S
@@ -25,7 +28,7 @@ fi
 if nginx -t -q 2>/dev/null; then systemctl reload nginx && ok+=("заголовки защиты"); else cp /root/crystal.nginx.bak $F; nginx -t -q && systemctl reload nginx; bad+=("заголовки (откатил)"); fi
 
 # 2. fail2ban — блокирует подбор пароля к серверу (5 ошибок за 10 минут → бан на час)
-if ! command -v fail2ban-client >/dev/null; then timeout 600 apt-get install -y -qq fail2ban >/dev/null 2>&1; fi
+if ! command -v fail2ban-client >/dev/null; then timeout 300 apt-get update -qq >/dev/null 2>&1; timeout 600 apt-get install -y -qq fail2ban >/dev/null 2>&1; fi
 if command -v fail2ban-client >/dev/null; then
   printf '[sshd]\nenabled = true\nmaxretry = 5\nfindtime = 10m\nbantime = 1h\n' > /etc/fail2ban/jail.d/crystal.local
   systemctl enable -q --now fail2ban && systemctl restart fail2ban && ok+=("fail2ban (защита от подбора пароля)") || bad+=("fail2ban")
