@@ -263,6 +263,7 @@
       if (!ok) { toast('Заполните отмеченные поля'); return; }
       var data = new FormData(f);
       data.append('page', document.title);
+      data.append('t', String(Math.round(performance.now())));   // сколько мс страница открыта: роботы отправляют форму мгновенно или вообще без браузера
       var text = 'Заявка с сайта CRYSTAL FINANCE\nИмя: ' + (data.get('name') || '') + '\nТелефон: ' + (data.get('phone') || '') +
         '\nУслуга: ' + (data.get('service') || '—') + (data.get('comment') ? '\nКомментарий: ' + data.get('comment') : '');
       var btn = $('button[type=submit]', f); btn.disabled = true; var old = btn.innerHTML; btn.textContent = 'Отправляем…';

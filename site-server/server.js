@@ -64,11 +64,16 @@ http.createServer((req, res) => {
   req.on('end', async () => {
     const f = new URLSearchParams(body), ip = req.headers['x-real-ip'] || req.socket.remoteAddress;
     if (f.get('website')) return json(200, { ok: true });            // ловушка для ботов
+    // отправка не из браузера или быстрее 3 секунд после открытия страницы — робот: делаем вид, что приняли
+    if (!(Number(f.get('t')) >= 3000)) return json(200, { ok: true });
     if (limited(ip)) return json(429, { ok: false, error: 'Слишком много заявок' });
     const lead = { at: new Date().toISOString(), name: clean(f.get('name'), 80), phone: clean(f.get('phone'), 30),
       service: clean(f.get('service'), 60), comment: clean(f.get('comment'), 1000), page: clean(req.headers.referer, 200),
       consent: f.get('consent') === 'yes' };
-    if (!lead.name || lead.phone.replace(/\D/g, '').length < 10 || !lead.consent) return json(400, { ok: false, error: 'Проверьте имя, телефон и согласие' });
+    // имя — только буквы, пробел, дефис; телефон — только цифры и + ( ) - пробел, 10–11 цифр
+    if (!/^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё .\-]{0,79}$/.test(lead.name) || !/^[+\d\s()\-]+$/.test(lead.phone)) return json(400, { ok: false, error: 'Проверьте имя и телефон' });
+    if (/\b(poc|probe|test|тест)\b/i.test(lead.name + ' ' + lead.comment)) return json(200, { ok: true });   // тестовые/проверочные отправки не шлём владельцу
+    if (!lead.name || lead.phone.replace(/\D/g, '').length < 10 || lead.phone.replace(/\D/g, '').length > 11 || !lead.consent) return json(400, { ok: false, error: 'Проверьте имя, телефон и согласие' });
     fs.appendFileSync(FILE, JSON.stringify(lead) + '\n');            // запись в России — первой
     json(200, { ok: true });
   });
