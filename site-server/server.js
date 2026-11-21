@@ -64,8 +64,8 @@ function harden() {
 }
 // проверяем каждые 2 минуты: запустить автозащиту или отправить её итог
 setInterval(harden, 120e3);
-// сторож атак на сайт и сервер (журналы nginx и fail2ban)
-require('./watch')(DATA, secLog);
+// сторож атак на сайт и сервер (журналы nginx и fail2ban), постоянные блокировки
+const W = require('./watch')(DATA, secLog);
 setTimeout(harden, 5000);
 
 http.createServer((req, res) => {
@@ -115,12 +115,20 @@ http.createServer((req, res) => {
       } catch (e) { json(400, { ok: false, error: e.message }); }
     });
   }
+  // управление блокировками из бота заявок (через публикатор, только по ключу)
+  if (req.url.startsWith('/api/unban') || req.url.startsWith('/api/ipcheck')) {
+    if (!keyOk(req)) return json(403, { ok: false });
+    const ip = (new URL(req.url, 'http://x').searchParams.get('ip') || '').trim();
+    if (!/^[0-9a-f.:]{3,45}$/i.test(ip)) return json(400, { ok: false, error: 'IP' });
+    if (req.url.startsWith('/api/unban')) return json(200, { ok: true, removed: W.unban(ip) });
+    return json(200, { ok: true, banned: W.list()[ip] || null, hist: W.history(ip) });
+  }
   if (req.method !== 'POST' || !req.url.startsWith('/api/lead')) return json(404, { ok: false });
   let body = '';
   req.on('data', c => { body += c; if (body.length > 20000) req.destroy(); });
   req.on('end', async () => {
     const f = new URLSearchParams(body), ip = req.headers['x-real-ip'] || req.socket.remoteAddress;
-    const ua = clean(req.headers['user-agent'], 150), junk = reason => { secLog({ type: 'blocked', ip, ua, reason, name: clean(f.get('name'), 40), phone: clean(f.get('phone'), 30), comment: clean(f.get('comment'), 100), page: clean(req.headers.referer, 100) }); return json(200, { ok: true }); };
+    const ua = clean(req.headers['user-agent'], 150), junk = reason => { const hack = /взлом|проверочн/.test(reason); if (hack) W.ban(ip, reason); secLog({ type: 'blocked', ip, ua, reason, ban: hack ? 'forever' : '', hist: hack ? W.history(ip) : null, name: clean(f.get('name'), 40), phone: clean(f.get('phone'), 30), comment: clean(f.get('comment'), 100), page: clean(req.headers.referer, 100) }); return json(200, { ok: true }); };
     if (f.get('website')) return junk('ловушка для ботов');
     // отправка не из браузера или быстрее 3 секунд после открытия страницы — робот: делаем вид, что приняли
     if (!(Number(f.get('t')) >= 3000)) return junk('отправка не из браузера или слишком быстро');
