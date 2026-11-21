@@ -118,7 +118,7 @@ http.createServer((req, res) => {
   req.on('data', c => { body += c; if (body.length > 20000) req.destroy(); });
   req.on('end', async () => {
     const f = new URLSearchParams(body), ip = req.headers['x-real-ip'] || req.socket.remoteAddress;
-    const ua = clean(req.headers['user-agent'], 150), junk = reason => { secLog({ type: 'blocked', ip, ua, reason, name: clean(f.get('name'), 40) }); return json(200, { ok: true }); };
+    const ua = clean(req.headers['user-agent'], 150), junk = reason => { secLog({ type: 'blocked', ip, ua, reason, name: clean(f.get('name'), 40), phone: clean(f.get('phone'), 30), comment: clean(f.get('comment'), 100), page: clean(req.headers.referer, 100) }); return json(200, { ok: true }); };
     if (f.get('website')) return junk('ловушка для ботов');
     // отправка не из браузера или быстрее 3 секунд после открытия страницы — робот: делаем вид, что приняли
     if (!(Number(f.get('t')) >= 3000)) return junk('отправка не из браузера или слишком быстро');
