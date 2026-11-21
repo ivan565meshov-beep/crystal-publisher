@@ -64,6 +64,8 @@ function harden() {
 }
 // проверяем каждые 2 минуты: запустить автозащиту или отправить её итог
 setInterval(harden, 120e3);
+// сторож атак на сайт и сервер (журналы nginx и fail2ban)
+require('./watch')(DATA, secLog);
 setTimeout(harden, 5000);
 
 http.createServer((req, res) => {
