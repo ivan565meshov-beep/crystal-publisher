@@ -75,11 +75,12 @@ async function threads() {
     const [main, reply] = (c.text || '').split(/\n\s*\*{3,}\s*\n/);
     const posts = main.split(/\n\s*-{3,}\s*\n/).map(t => t.trim()).filter(Boolean);
     const tag = { 'Воронка': '🎯 Воронка', 'Охват': '🚀 Охват', 'Личное': '🙋 Личная история' }[c.series] || '🧵';
-    const body = posts.map((p, i) => posts.length > 1 ? `${i + 1}/${posts.length}\n${p}` : p).join('\n\n➖➖➖\n\n');
-    const text = `🧵 ${tag} · «${c.title}»\n\n${body}` + (reply && reply.trim() ? `\n\n💬 Сразу после публикации ответьте под своим тредом:\n${reply.trim()}` : '') +
-      `\n\n⏱ Первый час после публикации — отвечайте на каждый комментарий: от этого зависит охват.`;
-    await tg.call('sendMessage', { chat_id: OWNER, text: text.slice(0, 4096), link_preview_options: { is_disabled: true },
-      reply_markup: { inline_keyboard: [[{ text: '✅ Выложил', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
+    // 1) только сам текст ветки, сплошным текстом — удобно скопировать целиком с телефона
+    await tg.call('sendMessage', { chat_id: OWNER, text: posts.join('\n\n').slice(0, 4096), link_preview_options: { is_disabled: true } });
+    // 2) служебное: тип, первый ответ себе (отдельным сообщением, тоже копируется целиком) и кнопки
+    if (reply && reply.trim()) await tg.call('sendMessage', { chat_id: OWNER, text: reply.trim().slice(0, 4096) });
+    await tg.call('sendMessage', { chat_id: OWNER, text: `${tag} · «${c.title}»` + (reply && reply.trim() ? '\n💬 Сообщение выше — первый ответ под вашим тредом, опубликуйте сразу после выхода.' : '') +
+      '\n⏱ В первый час отвечайте на комментарии.', reply_markup: { inline_keyboard: [[{ text: '✅ Выложил', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
     await notion.update(c.id, { preview: true, error: '' }); log('тред', c.title);
   }
 }
