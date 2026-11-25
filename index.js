@@ -71,10 +71,13 @@ async function threads() {
   const list = (await notion.query('На проверке')).filter(c => c.format === 'Тредс' && !c.preview && (!c.date || new Date(c.date) <= new Date()))
     .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
   for (const c of list.slice(0, 3)) {   // за один проход не больше трёх, если накопились
-    const posts = (c.text || '').split(/\n\s*-{3,}\s*\n/).map(t => t.trim()).filter(Boolean);
+    // после строки *** — первый ответ себе под тредом (запускает обсуждение в первый час)
+    const [main, reply] = (c.text || '').split(/\n\s*\*{3,}\s*\n/);
+    const posts = main.split(/\n\s*-{3,}\s*\n/).map(t => t.trim()).filter(Boolean);
     const tag = { 'Воронка': '🎯 Воронка', 'Охват': '🚀 Охват', 'Личное': '🙋 Личная история' }[c.series] || '🧵';
     const body = posts.map((p, i) => posts.length > 1 ? `${i + 1}/${posts.length}\n${p}` : p).join('\n\n➖➖➖\n\n');
-    const text = `🧵 ${tag} · «${c.title}»\n\n${body}`;
+    const text = `🧵 ${tag} · «${c.title}»\n\n${body}` + (reply && reply.trim() ? `\n\n💬 Сразу после публикации ответьте под своим тредом:\n${reply.trim()}` : '') +
+      `\n\n⏱ Первый час после публикации — отвечайте на каждый комментарий: от этого зависит охват.`;
     await tg.call('sendMessage', { chat_id: OWNER, text: text.slice(0, 4096), link_preview_options: { is_disabled: true },
       reply_markup: { inline_keyboard: [[{ text: '✅ Выложил', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
     await notion.update(c.id, { preview: true, error: '' }); log('тред', c.title);
