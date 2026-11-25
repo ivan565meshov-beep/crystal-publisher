@@ -65,6 +65,22 @@ const setAtt = o => { fs.mkdirSync(path.dirname(ATT), { recursive: true }); fs.w
 // одна единица контента в день: в 10:00 по Новокузнецку присылаем владельцу одно готовое сообщение
 const DAYF = path.join(__dirname, 'data', 'daily_preview_day.txt');
 const nkz = () => new Date(Date.now() + 7 * 3600e3);   // время Новокузнецка (UTC+7)
+// Треды: много в день, каждый одним сообщением в своё время («Дата публикации»), сплошным текстом с кнопками
+async function threads() {
+  if (!/^-?\d+$/.test(String(OWNER || ''))) return;
+  const list = (await notion.query('На проверке')).filter(c => c.format === 'Тредс' && !c.preview && (!c.date || new Date(c.date) <= new Date()))
+    .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+  for (const c of list.slice(0, 3)) {   // за один проход не больше трёх, если накопились
+    const posts = (c.text || '').split(/\n\s*-{3,}\s*\n/).map(t => t.trim()).filter(Boolean);
+    const tag = { 'Воронка': '🎯 Воронка', 'Охват': '🚀 Охват', 'Личное': '🙋 Личная история' }[c.series] || '🧵';
+    const body = posts.map((p, i) => posts.length > 1 ? `${i + 1}/${posts.length}\n${p}` : p).join('\n\n➖➖➖\n\n');
+    const text = `🧵 ${tag} · «${c.title}»\n\n${body}`;
+    await tg.call('sendMessage', { chat_id: OWNER, text: text.slice(0, 4096), link_preview_options: { is_disabled: true },
+      reply_markup: { inline_keyboard: [[{ text: '✅ Выложил', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
+    await notion.update(c.id, { preview: true, error: '' }); log('тред', c.title);
+  }
+}
+
 async function previews() {
   if (!/^-?\d+$/.test(String(OWNER || ''))) return; // сначала напишите боту /start и впишите chat_id в .env
   const now = nkz(), today = now.toISOString().slice(0, 10);
@@ -77,7 +93,7 @@ async function previews() {
   const list = (await notion.query('На проверке')).sort((a, b) =>
     (/мультсери/i.test(b.title) - /мультсери/i.test(a.title)) || String(a.date || '9').localeCompare(String(b.date || '9')) || num(a.title) - num(b.title));
   for (const c of list) {
-    if (c.preview) continue;
+    if (c.preview || c.format === 'Тредс') continue;   // треды приходят отдельно, каждый в своё время (threads())
     const a = att(); a[c.id] = (a[c.id] || 0) + 1; setAtt(a);
     if (a[c.id] > 3) { await notion.update(c.id, { preview: true, error: 'Превью: сборка не удалась 3 раза — проверьте сценарий' }); continue; }
     try {
@@ -259,6 +275,8 @@ setInterval(() => require('./lib/siteleads').pull(log).catch(e => log('заяв�
 setInterval(() => require('./lib/weekly').run(tg.send, OWNER).catch(e => log('итоги недели:', e.message)), 10 * 60e3);
 // находки агентов «Охотник» и «Партнёры» → бот заявок; кнопки «Взял в работу / Не подходит»
 setInterval(() => require('./lib/finds').send(log).catch(e => log('находки:', e.message)), 120000);
+// треды — каждый в своё время в течение дня
+setInterval(() => threads().catch(e => log('треды:', e.message)), 120000);
 setInterval(() => require('./lib/finds').buttons().catch(e => log('кнопки находок:', e.message)), 5000);
 poll(); work();
 setInterval(poll, 3000); setInterval(work, 60 * 1000);
