@@ -280,7 +280,9 @@ setInterval(() => require('./lib/weekly').run(tg.send, OWNER).catch(e => log('и
 // находки агентов «Охотник» и «Партнёры» → бот заявок; кнопки «Взял в работу / Не подходит»
 setInterval(() => require('./lib/finds').send(log).catch(e => log('находки:', e.message)), 120000);
 // треды — каждый в своё время в течение дня
-setInterval(() => threads().catch(e => log('треды:', e.message)), 120000);
+let threadsErrAt = 0;   // ошибка отправки тредов — сообщаем владельцу, но не чаще раза в 3 часа
+setInterval(() => threads().catch(e => { log('треды:', e.message);
+  if (Date.now() - threadsErrAt > 3 * 3600e3) { threadsErrAt = Date.now(); tg.call('sendMessage', { chat_id: OWNER, text: '⚠️ Треды не отправились: ' + e.message.slice(0, 300) }).catch(() => {}); } }), 120000);
 setInterval(() => require('./lib/finds').buttons().catch(e => log('кнопки находок:', e.message)), 5000);
 poll(); work();
 setInterval(poll, 3000); setInterval(work, 60 * 1000);
