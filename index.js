@@ -3,7 +3,8 @@
 // «Одобрено» → в «Дату публикации» публикует в Telegram-канал, VK и Instagram → «Опубликовано»
 require('./lib/env');
 const fs = require('fs'), path = require('path');
-const notion = require('./lib/notion'), tg = require('./lib/tg'), vk = require('./lib/vk'), ig = require('./lib/ig');
+const notion = require('./lib/notion'), tg = require('./lib/tg'), vk = require('./lib/vk'), ig = require('./lib/ig'), max = require('./lib/max');
+const keys = require('./lib/keys'), ap = require('./lib/autopost');
 const { voiceover } = require('./lib/tts'), { fetchBroll } = require('./lib/stock');
 const { film } = require('./film'), { renderCarousel } = require('./render');
 const WORK = path.join(__dirname, 'data', 'work'), OWNER = process.env.TG_OWNER_CHAT_ID;
@@ -110,8 +111,11 @@ async function previews() {
         const posts = (c.text || '').split(/\n\s*-{3,}\s*\n/).map(t => t.trim()).filter(Boolean);
         for (let k = 0; k < posts.length; k++) await tg.send(OWNER, { text: `${k + 1}/${posts.length}\n\n${posts[k]}` });
       }
-      await tg.send(OWNER, { text: c.format === 'Тредс' ? '' : c.format === 'Статья' && c.platforms.includes('Сайт') ? `📰 Статья для блога на сайте\n\n${c.text || ''}\n\nПолный текст — по ссылке на Notion ниже. После «Одобрить» статья появится на crystalfinance.ru/blog в течение 10 минут.` : c.format === 'Reels' ? instaText(c.text, await notion.spec(c.id)) : fixText(c.text), ...m, keyboard: { text: `📅 Контент на сегодня: «${c.title}»\n${c.platforms.join(', ') || 'площадка не указана'} · ${c.date || 'без даты'}\n${c.url}`,
-        buttons: [[{ text: '✅ Выложил', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
+      // какие площадки выйдут сами после «🚀 Опубликовать», а какие — вручную
+      const autoP = ap.on() ? ap.autoFor(c.platforms) : [], manP = c.platforms.filter(x => !autoP.includes(x));
+      const where = autoP.length ? `\n🚀 Сама выйдет: ${autoP.join(', ')}` + (manP.length ? `\n✋ Вручную: ${manP.join(', ')} (файлы и текст выше)` : '') : `\n${c.platforms.join(', ') || 'площадка не указана'}`;
+      await tg.send(OWNER, { text: c.format === 'Тредс' ? '' : c.format === 'Статья' && c.platforms.includes('Сайт') ? `📰 Статья для блога на сайте\n\n${c.text || ''}\n\nПолный текст — по ссылке на Notion ниже. После «Одобрить» статья появится на crystalfinance.ru/blog в течение 10 минут.` : c.format === 'Reels' ? instaText(c.text, await notion.spec(c.id)) : fixText(c.text), ...m, keyboard: { text: `📅 Контент на сегодня: «${c.title}»${where}\n${c.date || 'без даты'} · ${c.url}`,
+        buttons: [[{ text: autoP.length ? '🚀 Опубликовать' : '✅ Выложил', callback_data: `ok:${c.id}` }, { text: '✏️ Переделать', callback_data: `no:${c.id}` }]] } });
       await notion.update(c.id, { preview: true, error: '' }); log('превью', c.title);
       const a2 = att(); delete a2[c.id]; setAtt(a2);
       fs.mkdirSync(path.dirname(DAYF), { recursive: true }); fs.writeFileSync(DAYF, today);
@@ -131,16 +135,15 @@ async function previews() {
 // не чаще одного поста в MIN_GAP_MIN минут (по умолчанию 120) — чтобы просроченные не вышли пачкой
 const LAST = path.join(__dirname, 'data', 'last_publish.txt');
 const gapOk = () => { try { return Date.now() - Number(fs.readFileSync(LAST, 'utf8')) > Number(process.env.MIN_GAP_MIN || 120) * 6e4; } catch { return true; } };
-// по умолчанию автопостинг выключен: владелец публикует сам. Включить: AUTO_PUBLISH=1 в .env
-const AUTO = process.env.AUTO_PUBLISH === '1';
+// автопостинг: публикуем только то, что владелец одобрил кнопкой «🚀 Опубликовать» (см. lib/autopost.js)
 async function publish() {
-  if (!AUTO) return;
-  const due = (await notion.query('Одобрено')).filter(c => !c.date || new Date(c.date) <= new Date())
+  if (!ap.on()) return;
+  // одобренное кнопкой выходит сразу (дата не ждёт): владелец сам решил «публикуй»
+  const due = (await notion.query('Одобрено')).filter(c => ap.isApproved(c.id))
     .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
   for (const c0 of due) {
-    // только Дзен (или нет автоплощадок) — публикуется вручную, автопостинг пропускает
-    const auto = c0.platforms.filter(x => ['Telegram', 'VK', 'Instagram'].includes(x));
-    if (!auto.length) continue;
+    const auto = ap.autoFor(c0.platforms);
+    if (!auto.length) { ap.done(c0.id); continue; }
     if (!gapOk()) return;
     const c = { ...c0, text: fixText(c0.text) };
     let m;
@@ -154,7 +157,8 @@ async function publish() {
     const targets = [
       ['Telegram', process.env.TG_CHANNEL, async () => tg.link(await tg.send(process.env.TG_CHANNEL, { text: c.text, ...m }))],
       ['VK', process.env.VK_TOKEN, () => vk.post({ text: c.text, title: c.title, ...m })],
-      ['Instagram', process.env.IG_TOKEN, () => ig.post({ text: c.text, ...m })],
+      ['MAX', process.env.MAX_TOKEN, () => max.post({ text: c.text, ...m })],
+      ['Instagram', process.env.IG_TOKEN, async () => ig.post({ text: c.format === 'Reels' ? instaText(c0.text, await notion.spec(c.id).catch(() => null)) : c.text, ...m })],
     ];
     const links = [], errs = [];
     for (const [name, on, run] of targets) {
@@ -162,10 +166,11 @@ async function publish() {
       try { const l = await run(); links.push(`${name}: ${l || 'опубликовано'}`); }
       catch (e) { errs.push(`${name}: ${e.message}`); log('ошибка', name, c.title, e.message); }
     }
-    const ok = links.length > 0;
+    const ok = links.length > 0; ap.done(c.id);
+    const manual = c.platforms.filter(x => !auto.includes(x) && !['Сайт', 'Дзен'].includes(x));
     if (ok) { fs.mkdirSync(path.dirname(LAST), { recursive: true }); fs.writeFileSync(LAST, String(Date.now())); }
     await notion.update(c.id, { status: ok ? 'Опубликовано' : 'Переделать', link: (links[0] || '').replace(/^\w+: /, '').startsWith('http') ? links[0].replace(/^\w+: /, '') : undefined, error: errs.join('\n') });
-    if (OWNER) await tg.call('sendMessage', { chat_id: OWNER, text: `${ok ? '🚀 Опубликовано' : '⚠️ Не опубликовано'}: «${c.title}»\n${links.join('\n')}${errs.length ? '\n\nОшибки:\n' + errs.join('\n') : ''}` });
+    if (OWNER) await tg.call('sendMessage', { chat_id: OWNER, text: `${ok ? '🚀 Опубликовано' : '⚠️ Не опубликовано'}: «${c.title}»\n${links.join('\n')}${errs.length ? '\n\nОшибки:\n' + errs.join('\n') : ''}${ok && manual.length ? `\n\n✋ Осталось выложить вручную: ${manual.join(', ')} — файлы и текст в превью выше.` : ''}` });
     log(ok ? 'опубликовано' : 'не опубликовано', c.title);
   }
 }
@@ -207,12 +212,18 @@ async function buttons() {
       await tg.call('sendMessage', { chat_id: msg.chat.id, text: 'Чтобы разобрать вашу ситуацию, напишите слово РАЗБОР нашему специалисту: @crystalfin54. Консультация бесплатная.' });
       continue;
     }
+    // команды владельца: ключи площадок, проверка, автопостинг
+    if (isOwner && msg.text && /^\/(key|status|autopost_on|autopost_off)\b/.test(msg.text)) { await ownerCmd(msg); continue; }
     if (q && String(q.from.id) === String(OWNER)) {
       const [act, id] = q.data.split(':');
       if (act === 'ok') {
+        const card = await notion.page(id).catch(() => null);
+        const autoP = card && card.format !== 'Тредс' && ap.on() ? ap.autoFor(card.platforms) : [];
         await notion.update(id, { status: 'Одобрено' });
-        await tg.call('answerCallbackQuery', { callback_query_id: q.id, text: AUTO ? 'Одобрено — опубликую по расписанию' : 'Одобрено' });
-        if (!AUTO) await tg.call('sendMessage', { chat_id: OWNER, reply_to_message_id: q.message?.message_id,
+        if (autoP.length) ap.approve(id);
+        await tg.call('answerCallbackQuery', { callback_query_id: q.id, text: autoP.length ? `Публикую в ${autoP.join(', ')} — пришлю ссылки` : 'Одобрено' });
+        if (autoP.length) setTimeout(work, 2000);
+        if (!autoP.length) await tg.call('sendMessage', { chat_id: OWNER, reply_to_message_id: q.message?.message_id,
           text: '✅ Одобрено. Видео/слайды и текст — в сообщениях выше: сохраните и опубликуйте сами.\nПосле публикации нажмите кнопку — SMM не будет повторять тему.',
           reply_markup: { inline_keyboard: [[{ text: '📤 Опубликовал', callback_data: `pub:${id}` }]] } });
       }
@@ -225,6 +236,20 @@ async function buttons() {
       await tg.call('sendMessage', { chat_id: OWNER, text: 'Принял, отправил на доработку.' });
     } else if (msg?.text === '/start') await tg.call('sendMessage', { chat_id: msg.chat.id, text: `Ваш chat_id: ${msg.chat.id}` });
   }
+}
+
+async function ownerCmd(msg) {
+  const say = text => tg.call('sendMessage', { chat_id: OWNER, text, link_preview_options: { is_disabled: true } });
+  const [cmd, name, ...rest] = msg.text.trim().split(/\s+/);
+  if (cmd === '/key') {
+    // сообщение с ключом сразу удаляем из чата
+    await tg.call('deleteMessage', { chat_id: OWNER, message_id: msg.message_id }).catch(() => {});
+    try { keys.set(name, rest.join('')); await say(`🔐 ${name} сохранён (${keys.mask(rest.join(''))}), сообщение с ключом удалено. Проверяю площадки…`); await say(await keys.status(tg)); }
+    catch (e) { await say(`⚠️ ${e.message}\nФормат: /key ИМЯ значение`); }
+  }
+  if (cmd === '/status') await say(await keys.status(tg));
+  if (cmd === '/autopost_on') { ap.setOn(true); await say('🟢 Автопостинг включён: после «🚀 Опубликовать» пост сам выйдет в подключённые площадки.'); }
+  if (cmd === '/autopost_off') { ap.setOn(false); await say('⚪️ Автопостинг выключен: всё выкладываете сами, кнопка снова «✅ Выложил».'); }
 }
 
 // раздаём картинки карусели для Instagram (он забирает их по ссылке)
